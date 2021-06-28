@@ -42,6 +42,18 @@ class Graphical_interface(QMainWindow):
     self._answer_timer = 0
 
   def __call__(self):
+    self._set_layout()
+
+    self._display_if_connected(self._loop._is_connected)
+    self._disable_if_connected(self._loop._is_connected)
+
+    self._set_connections()
+
+    self.show()
+
+    self._start_thread()
+
+  def _set_layout(self):
     self.setWindowTitle('Stimulator Interface')
 
     self._generalLayout = QVBoxLayout()
@@ -73,9 +85,7 @@ class Graphical_interface(QMainWindow):
     self._status_display = QLabel("")
     self._generalLayout.addWidget(self._status_display)
 
-    self._display_if_connected(self._loop._is_connected)
-    self._disable_if_connected(self._loop._is_connected)
-
+  def _set_connections(self):
     self._connect_button.clicked.connect(self._try_connect)
 
     self._status_button.clicked.connect(
@@ -89,14 +99,6 @@ class Graphical_interface(QMainWindow):
 
     self._stop_server_button.clicked.connect(
       partial(self._send_server, self._stop_server_button.text()))
-
-    self.show()
-
-    self._thread = QThread()
-    self._timer = Timer(gui=self, delay=1)
-    self._timer.moveToThread(self._thread)
-    self._thread.started.connect(self._timer.run)
-    self._thread.start()
 
   def _display_if_connected(self, bool_: bool) -> None:
     if bool_:
@@ -184,6 +186,13 @@ class Graphical_interface(QMainWindow):
     self._display_connection_status(self._loop._connect_to_broker())
     self._display_if_connected(self._loop._is_connected)
     self._disable_if_connected(self._loop._is_connected)
+
+  def _start_thread(self):
+    self._thread = QThread()
+    self._timer = Timer(gui=self, delay=1)
+    self._timer.moveToThread(self._thread)
+    self._thread.started.connect(self._timer.run)
+    self._thread.start()
 
   def _exit_thread(self):
     self._timer.stop()
