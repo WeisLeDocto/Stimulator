@@ -185,9 +185,9 @@ class Graphical_interface(QMainWindow):
     self._disable_if_connected(self._loop._is_connected)
 
   def _exit_thread(self):
-    self.worker.stop()
-    self.thread.exit()
-    if self.thread.wait(5000):
+    self._timer.stop()
+    self._thread.exit()
+    if self._thread.wait(5000):
       print("Stopped")
 
   def closeEvent(self, event) -> None:
