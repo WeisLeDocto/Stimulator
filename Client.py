@@ -18,7 +18,7 @@ from PyQt5.QtCore import QThread
 from PyQt5.QtCore import QObject
 
 
-class Worker(QObject):
+class Timer(QObject):
   def __init__(self, gui):
     super().__init__()
     self._gui = gui
@@ -91,11 +91,11 @@ class Graphical_interface(QMainWindow):
 
     self.show()
 
-    self.thread = QThread()
-    self.worker = Worker(self)
-    self.worker.moveToThread(self.thread)
-    self.thread.started.connect(self.worker.run)
-    self.thread.start()
+    self._thread = QThread()
+    self._timer = Timer(self)
+    self._timer.moveToThread(self._thread)
+    self._thread.started.connect(self._timer.run)
+    self._thread.start()
 
   def _display_if_connected(self, bool_: bool) -> None:
     if bool_:
