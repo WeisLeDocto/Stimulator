@@ -11,7 +11,6 @@ from functools import partial
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtWidgets import QGridLayout
 from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QPushButton
@@ -282,16 +281,4 @@ class Client_loop:
 
 
 if __name__ == "__main__":
-  if False:
-    with open("bibi.txt", "w+") as bibi:
-      i = 0
-      while True:
-        try:
-          bibi.write(str(i))
-          i += 1
-          time.sleep(1)
-        except KeyboardInterrupt:
-          bibi.write('STOP')
-          break
-
   Client_loop(1148)()

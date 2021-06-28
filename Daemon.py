@@ -2,12 +2,11 @@
 
 import socket
 import daemon
-from threading import Thread
 import paho.mqtt.client as mqtt
 from queue import Queue, Empty
 from pickle import loads, dumps, UnpicklingError
 import time
-from subprocess import Popen, TimeoutExpired, PIPE, STDOUT
+from subprocess import Popen, TimeoutExpired
 from os.path import abspath, dirname
 from signal import SIGINT
 
