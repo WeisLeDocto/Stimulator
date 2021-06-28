@@ -19,15 +19,16 @@ from PyQt5.QtCore import QObject
 
 
 class Timer(QObject):
-  def __init__(self, gui):
+  def __init__(self, gui, delay):
     super().__init__()
     self._gui = gui
     self._stop = False
+    self._delay = delay
 
   def run(self):
     while not self._stop:
       self._gui._gui_loop()
-      time.sleep(1)
+      time.sleep(self._delay)
 
   def stop(self):
     self._stop = True
@@ -92,7 +93,7 @@ class Graphical_interface(QMainWindow):
     self.show()
 
     self._thread = QThread()
-    self._timer = Timer(self)
+    self._timer = Timer(gui=self, delay=1)
     self._timer.moveToThread(self._thread)
     self._thread.started.connect(self._timer.run)
     self._thread.start()
