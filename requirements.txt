@@ -1,4 +1,5 @@
-daemon>=2.3.0
-paho.mqtt.client>=1.5.1
-PyQt5>=5.15.4
+python-daemon>=2.3.0
+paho-mqtt>=1.5.1
+pyqt5>=5.12.2
 git+git://github.com/LaboratoireMecaniqueLille/crappy@master#egg=crappy
+pyqtgraph>=0.12.1
