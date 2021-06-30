@@ -1,10 +1,5 @@
 # coding: utf-8
 
-# TODO
-# Lock for the thread
-# Improve exit_thread
-# Unify topic names
-
 import time
 import paho.mqtt.client as mqtt
 from queue import Queue, Empty
@@ -136,7 +131,8 @@ class Graphical_interface(QMainWindow):
                              axisItems={'bottom': self._x_axis,
                                         'left': self._y_axis},
                              labels={'bottom': 't(s)',
-                                     'left': 'position (mm)'})
+                                     'left': 'position (mm)'},
+                             title='Movable pin position')
     self._generalLayout.addWidget(self._graph)
 
   def _set_connections(self):
