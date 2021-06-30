@@ -3,12 +3,14 @@
 # TODO
 # Lock for the thread
 # Improve exit_thread
+# Unify topic names
 
 import time
 import paho.mqtt.client as mqtt
 from queue import Queue, Empty
 import socket
 from pickle import loads, dumps, UnpicklingError
+from ast import literal_eval
 
 import sys
 from functools import partial
@@ -20,6 +22,10 @@ from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtCore import QThread
 from PyQt5.QtCore import QObject
+
+from pyqtgraph import PlotWidget
+from pyqtgraph import mkPen
+from pyqtgraph import AxisItem
 
 
 class Timer(QObject):
@@ -76,6 +82,10 @@ class Graphical_interface(QMainWindow):
 
     self._set_connections()
 
+    self._x_data = []
+    self._y_data = []
+    self._curve = self._graph.plot(self._x_data, self._y_data, pen=mkPen('k'))
+
     self.show()
 
     self._start_thread()
@@ -114,8 +124,20 @@ class Graphical_interface(QMainWindow):
     self._stop_server_button = QPushButton("Stop server")
     self._generalLayout.addWidget(self._stop_server_button)
 
+    # Graphs
     self._status_display = QLabel("")
     self._generalLayout.addWidget(self._status_display)
+
+    self._x_axis = AxisItem(orientation='bottom', pen=mkPen('k'),
+                            textPen=mkPen('k'))
+    self._y_axis = AxisItem(orientation='left', pen=mkPen('k'),
+                            textPen=mkPen('k'))
+    self._graph = PlotWidget(parent=self._centralWidget, background=None,
+                             axisItems={'bottom': self._x_axis,
+                                        'left': self._y_axis},
+                             labels={'bottom': 't(s)',
+                                     'left': 'position (mm)'})
+    self._generalLayout.addWidget(self._graph)
 
   def _set_connections(self):
     """Sets the actions to perform when interacting with the widgets."""
@@ -206,6 +228,18 @@ class Graphical_interface(QMainWindow):
     when the interface is waiting for an answer after a command has bee issued.
     """
 
+    # Updating the graph
+    while not self._loop._data.empty():
+      try:
+        data = self._loop._data.get_nowait()
+      except Empty:
+        data = None
+
+      if data is not None:
+        self._x_data.extend(data[0])
+        self._y_data.extend(data[1])
+    self._curve.setData(self._x_data, self._y_data)
+
     if not self._waiting_for_answer:
       # Checking if disconnected
       self._display_if_connected(self._loop._is_connected)
@@ -293,7 +327,8 @@ class Client_loop:
                port: int,
                address: str = 'localhost',
                topic_out: str = 'Remote_control',
-               topic_in: str = 'Server_status') -> None:
+               topic_in: str = 'Server_status',
+               topic_data: tuple = ('t', 'pos')) -> None:
     if not isinstance(port, int):
       raise TypeError("port should be an integer")
     self._port = port
@@ -304,10 +339,14 @@ class Client_loop:
       raise TypeError("topic_in should be a string")
     if not isinstance(topic_out, str):
       raise TypeError("topic_out should be a string")
+    if not isinstance(topic_data, tuple):
+      raise TypeError("topic_data should be a tuple")
 
     self._topic_in = topic_in
     self._topic_out = topic_out
+    self._topic_data = topic_data
     self._queue = Queue()
+    self._data = Queue()
     self._client = mqtt.Client(str(time.time()))
     self._client.on_connect = self._on_connect
     self._client.on_message = self._on_message
@@ -323,6 +362,7 @@ class Client_loop:
       Graphical_interface(self)()
       sys.exit(app.exec_())
     finally:
+      self._client.loop_stop()
       self._client.disconnect()
 
   def _publish(self, message: str) -> None:
@@ -332,13 +372,17 @@ class Client_loop:
 
   def _on_message(self, client, userdata, message) -> None:
     try:
+      literal_eval(message.topic)
+      self._data.put_nowait(loads(message.payload))
+    except ValueError:
       self._queue.put_nowait(loads(message.payload))
+      print("Got message" + " : " + loads(message.payload))
     except UnpicklingError:
       print("Warning ! Message raised UnpicklingError, ignoring it")
-    print("Got message" + " : " + loads(message.payload))
 
   def _on_connect(self, client, userdata, flags, rc) -> None:
     self._client.subscribe(topic=self._topic_in, qos=2)
+    self._client.subscribe(topic=str(self._topic_data), qos=2)
     print("Subscribed")
     self._is_connected = True
     self._client.loop_start()
