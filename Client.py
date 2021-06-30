@@ -223,6 +223,9 @@ class Graphical_interface(QMainWindow):
     elif status == 2:
       self._is_busy_status_display.setText("Stimulating ! Do not unplug")
       self._is_busy_status_display.setStyleSheet("color: red;")
+    elif status == -1:
+      self._is_busy_status_display.setText("")
+      self._is_busy_status_display.setStyleSheet("color: black;")
     else:
       self._is_busy_status_display.setText("Error ! Wrong status value "
                                            "received")
@@ -265,10 +268,8 @@ class Graphical_interface(QMainWindow):
 
     # Updating the business status
     while not self._loop._is_busy_queue.empty():
-      print('trying')
       try:
         busy = self._loop._is_busy_queue.get_nowait()
-        print(busy)
       except Empty:
         busy = None
 
@@ -283,7 +284,7 @@ class Graphical_interface(QMainWindow):
       if not self._loop._is_connected:
         self._x_data = []
         self._y_data = []
-        self._is_busy_status_display.setText("")
+        self._display_busy(-1)
 
       # Getting new messages from the server
       if not self._loop._answer_queue.empty():
@@ -304,7 +305,7 @@ class Graphical_interface(QMainWindow):
         if not self._loop._is_connected:
           self._x_data = []
           self._y_data = []
-          self._is_busy_status_display.setText("")
+          self._display_busy(-1)
         self._waiting_for_answer = False
         self._answer_timer = 0
         self._disable_if_waiting()
@@ -319,6 +320,11 @@ class Graphical_interface(QMainWindow):
         # Exiting the waiting mode
         if message is not None:
           self._display_status(message)
+          if message in ["Protocol terminated gracefully",
+                         "Stopping the server and the MQTT broker"]:
+            self._display_busy(-1)
+            self._x_data = []
+            self._y_data = []
           self._waiting_for_answer = False
           self._answer_timer = 0
           self._disable_if_waiting()
