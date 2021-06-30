@@ -24,7 +24,9 @@ class Position_sender:
           t += 0.1
           pos += 0.05
           time.sleep(0.1)
+        busy = 0 if not t // 10 % 3 else 1 if not (t // 10 - 1) % 3 else 2
         self._client.publish(str(('t', 'pos')), dumps(to_send), qos=2)
+        self._client.publish(str(('busy',)), dumps(busy), qos=2)
     except KeyboardInterrupt:
       self._client.loop_stop()
       self._client.disconnect()

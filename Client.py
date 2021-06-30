@@ -66,6 +66,8 @@ class Graphical_interface(QMainWindow):
     self._loop = loop
     self._waiting_for_answer = False
     self._answer_timer = 0
+    self._busy = None
+    self._stopped = False
 
   def __call__(self) -> None:
     """Creates and starts the interface."""
@@ -91,6 +93,7 @@ class Graphical_interface(QMainWindow):
     self.setWindowTitle('Stimulator Interface')
 
     # General layout
+    self.setGeometry(550, 150, 300, 500)
     self._generalLayout = QVBoxLayout()
     self._centralWidget = QWidget(self)
     self.setCentralWidget(self._centralWidget)
@@ -134,6 +137,12 @@ class Graphical_interface(QMainWindow):
                                      'left': 'position (mm)'},
                              title='Movable pin position')
     self._generalLayout.addWidget(self._graph)
+
+    self._is_busy_header = QLabel("Stimulator busy :")
+    self._generalLayout.addWidget(self._is_busy_header)
+
+    self._is_busy_status_display = QLabel("")
+    self._generalLayout.addWidget(self._is_busy_status_display)
 
   def _set_connections(self):
     """Sets the actions to perform when interacting with the widgets."""
@@ -179,6 +188,8 @@ class Graphical_interface(QMainWindow):
     self._start_protocol_button.setEnabled(bool_)
     self._stop_protocol_button.setEnabled(bool_)
     self._stop_server_button.setEnabled(bool_)
+    self._is_busy_header.setEnabled(bool_)
+    self._is_busy_status_display.setEnabled(bool_)
 
   def _disable_if_waiting(self) -> None:
     """Disables the interaction buttons when waiting for an answer from the
@@ -201,6 +212,21 @@ class Graphical_interface(QMainWindow):
       self._status_display.setStyleSheet("color: red;")
     else:
       self._status_display.setStyleSheet("color: black;")
+
+  def _display_busy(self, status: int) -> None:
+    if status == 0:
+      self._is_busy_status_display.setText("Not currently stimulating")
+      self._is_busy_status_display.setStyleSheet("color: green;")
+    elif status == 1:
+      self._is_busy_status_display.setText("Stimulation starting soon !")
+      self._is_busy_status_display.setStyleSheet("color: orange;")
+    elif status == 2:
+      self._is_busy_status_display.setText("Stimulating ! Do not unplug")
+      self._is_busy_status_display.setStyleSheet("color: red;")
+    else:
+      self._is_busy_status_display.setText("Error ! Wrong status value "
+                                           "received")
+      self._is_busy_status_display.setStyleSheet("color: red;")
 
   def _send_server(self, message: str) -> None:
     """Sends command to the server and displays the corresponding status.
@@ -237,6 +263,19 @@ class Graphical_interface(QMainWindow):
         self._y_data.extend(data[1])
     self._curve.setData(self._x_data, self._y_data)
 
+    # Updating the business status
+    while not self._loop._is_busy_queue.empty():
+      print('trying')
+      try:
+        busy = self._loop._is_busy_queue.get_nowait()
+        print(busy)
+      except Empty:
+        busy = None
+
+      if busy is not None and busy != self._busy:
+        self._busy = busy
+        self._display_busy(busy)
+
     if not self._waiting_for_answer:
       # Checking if disconnected
       self._display_if_connected(self._loop._is_connected)
@@ -244,6 +283,7 @@ class Graphical_interface(QMainWindow):
       if not self._loop._is_connected:
         self._x_data = []
         self._y_data = []
+        self._is_busy_status_display.setText("")
 
       # Getting new messages from the server
       if not self._loop._answer_queue.empty():
@@ -264,6 +304,7 @@ class Graphical_interface(QMainWindow):
         if not self._loop._is_connected:
           self._x_data = []
           self._y_data = []
+          self._is_busy_status_display.setText("")
         self._waiting_for_answer = False
         self._answer_timer = 0
         self._disable_if_waiting()
@@ -334,7 +375,8 @@ class Client_loop:
                address: str = 'localhost',
                topic_out: str = 'Remote_control',
                topic_in: str = 'Server_status',
-               topic_data: tuple = ('t', 'pos')) -> None:
+               topic_data: tuple = ('t', 'pos'),
+               topic_is_busy: tuple = ('busy',)) -> None:
     if not isinstance(port, int):
       raise TypeError("port should be an integer")
     self._port = port
@@ -347,12 +389,16 @@ class Client_loop:
       raise TypeError("topic_out should be a string")
     if not isinstance(topic_data, tuple):
       raise TypeError("topic_data should be a tuple")
+    if not isinstance(topic_is_busy, tuple):
+      raise TypeError("topic_is_busy should be a tuple")
 
     self._topic_in = topic_in
     self._topic_out = topic_out
+    self._topic_is_busy = topic_is_busy
     self._topic_data = topic_data
     self._answer_queue = Queue()
     self._data_queue = Queue()
+    self._is_busy_queue = Queue()
     self._client = mqtt.Client(str(time.time()))
     self._client.on_connect = self._on_connect
     self._client.on_message = self._on_message
@@ -378,8 +424,10 @@ class Client_loop:
 
   def _on_message(self, client, userdata, message) -> None:
     try:
-      literal_eval(message.topic)
-      self._data_queue.put_nowait(loads(message.payload))
+      if literal_eval(message.topic) == self._topic_data:
+        self._data_queue.put_nowait(loads(message.payload))
+      elif literal_eval(message.topic) == self._topic_is_busy:
+        self._is_busy_queue.put_nowait(loads(message.payload))
     except ValueError:
       self._answer_queue.put_nowait(loads(message.payload))
       print("Got message" + " : " + loads(message.payload))
@@ -389,6 +437,7 @@ class Client_loop:
   def _on_connect(self, client, userdata, flags, rc) -> None:
     self._client.subscribe(topic=self._topic_in, qos=2)
     self._client.subscribe(topic=str(self._topic_data), qos=2)
+    self._client.subscribe(topic=str(self._topic_is_busy), qos=2)
     print("Subscribed")
     self._is_connected = True
     self._client.loop_start()
