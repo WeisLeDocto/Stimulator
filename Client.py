@@ -1,5 +1,9 @@
 # coding: utf-8
 
+# TODO
+# Lock for the thread
+# Improve exit_thread
+
 import time
 import paho.mqtt.client as mqtt
 from queue import Queue, Empty
@@ -19,29 +23,52 @@ from PyQt5.QtCore import QObject
 
 
 class Timer(QObject):
-  def __init__(self, gui, delay):
+  """Object that is actually living in the separate thread for updating the
+  display."""
+
+  def __init__(self, gui, delay) -> None:
+    """Initializes the parent class and sets the flags.
+
+    Args:
+      gui: The main window object that will be updated by the thread.
+      delay: The time between two display updates in seconds.
+    """
+
     super().__init__()
     self._gui = gui
     self._stop = False
     self._delay = delay
 
-  def run(self):
+  def run(self) -> None:
+    """Runs an infinite loop for refreshing the display."""
+
     while not self._stop:
       self._gui._gui_loop()
       time.sleep(self._delay)
 
   def stop(self):
+    """Sets the :attr:`_stop` flag to :obj:`False`."""
     self._stop = True
 
 
 class Graphical_interface(QMainWindow):
+  """Class for building and displaying the graphical user interface."""
+
   def __init__(self, loop):
+    """Initializes the main window and sets the flags.
+
+    Args:
+      loop: The Client_loop instance used to communicate with the server.
+    """
+
     super().__init__()
     self._loop = loop
     self._waiting_for_answer = False
     self._answer_timer = 0
 
-  def __call__(self):
+  def __call__(self) -> None:
+    """Creates and starts the interface."""
+
     self._set_layout()
 
     self._display_if_connected(self._loop._is_connected)
@@ -54,13 +81,17 @@ class Graphical_interface(QMainWindow):
     self._start_thread()
 
   def _set_layout(self):
+    """Creates the widgets and places them in the main window."""
+
     self.setWindowTitle('Stimulator Interface')
 
+    # General layout
     self._generalLayout = QVBoxLayout()
     self._centralWidget = QWidget(self)
     self.setCentralWidget(self._centralWidget)
     self._centralWidget.setLayout(self._generalLayout)
 
+    # Buttons and labels for managing the connection to the server
     self._connect_button = QPushButton("Connect to stimulator")
     self._generalLayout.addWidget(self._connect_button)
 
@@ -70,6 +101,7 @@ class Graphical_interface(QMainWindow):
     self._connection_status_display = QLabel("")
     self._generalLayout.addWidget(self._connection_status_display)
 
+    # Buttons and labels for managing commands to the server
     self._status_button = QPushButton("Print status")
     self._generalLayout.addWidget(self._status_button)
 
@@ -86,6 +118,8 @@ class Graphical_interface(QMainWindow):
     self._generalLayout.addWidget(self._status_display)
 
   def _set_connections(self):
+    """Sets the actions to perform when interacting with the widgets."""
+
     self._connect_button.clicked.connect(self._try_connect)
 
     self._status_button.clicked.connect(
@@ -101,15 +135,27 @@ class Graphical_interface(QMainWindow):
       partial(self._send_server, self._stop_server_button.text()))
 
   def _display_if_connected(self, bool_: bool) -> None:
+    """Displays the connection status.
+
+    Args:
+      bool_: :obj:`True` if connected to the server, else :obj:`False`.
+    """
+
     if bool_:
       self._is_connected_display.setText("Connected")
-      self._display_connection_status("")
+      self._connection_status_display.setText("")
       self._is_connected_display.setStyleSheet("color: black;")
     else:
       self._is_connected_display.setText("Not connected")
       self._is_connected_display.setStyleSheet("color: red;")
 
   def _disable_if_connected(self, bool_: bool) -> None:
+    """Disables the interaction buttons when not connected to the client.
+
+    Args:
+      bool_: :obj:`True` if connected to the server, else :obj:`False`.
+    """
+
     self._connect_button.setEnabled(not bool_)
     self._status_button.setEnabled(bool_)
     self._start_protocol_button.setEnabled(bool_)
@@ -117,15 +163,21 @@ class Graphical_interface(QMainWindow):
     self._stop_server_button.setEnabled(bool_)
 
   def _disable_if_waiting(self) -> None:
+    """Disables the interaction buttons when waiting for an answer from the
+    client"""
+
     self._status_button.setEnabled(not self._waiting_for_answer)
     self._start_protocol_button.setEnabled(not self._waiting_for_answer)
     self._stop_protocol_button.setEnabled(not self._waiting_for_answer)
     self._stop_server_button.setEnabled(not self._waiting_for_answer)
 
-  def _display_connection_status(self, status: str) -> None:
-    self._connection_status_display.setText(status)
-
   def _display_status(self, status: str) -> None:
+    """Displays messages received from the server.
+
+    Args:
+      status: Message to display.
+    """
+
     self._status_display.setText(status)
     if status.startswith("Error !"):
       self._status_display.setStyleSheet("color: red;")
@@ -133,6 +185,12 @@ class Graphical_interface(QMainWindow):
       self._status_display.setStyleSheet("color: black;")
 
   def _send_server(self, message: str) -> None:
+    """Sends command to the server and displays the corresponding status.
+
+    Args:
+      message: The command to send.
+    """
+
     if not self._loop._publish(message):
       self._display_status("Command sent successfully, waiting for answer")
       self._waiting_for_answer = True
@@ -141,10 +199,19 @@ class Graphical_interface(QMainWindow):
       self._display_status("Error ! Command not sent")
 
   def _gui_loop(self) -> None:
+    """Loop for updating the display on a regular basis.
+
+    Used for updating the connection status in case the client gets
+    disconnected from the server. Also manages the messages from the server
+    when the interface is waiting for an answer after a command has bee issued.
+    """
+
     if not self._waiting_for_answer:
+      # Checking if disconnected
       self._display_if_connected(self._loop._is_connected)
       self._disable_if_connected(self._loop._is_connected)
 
+      # Getting new messages from the server
       if not self._loop._queue.empty():
         try:
           message = self._loop._queue.get_nowait()
@@ -154,6 +221,7 @@ class Graphical_interface(QMainWindow):
         if message is not None:
           self._display_status(message)
     else:
+      # Checking if disconnected
       if not self._loop._is_connected:
         self._display_status("Error ! Disconnected while waiting for an "
                              "answer")
@@ -163,44 +231,59 @@ class Graphical_interface(QMainWindow):
         self._answer_timer = 0
         self._disable_if_waiting()
 
+      # Getting new messages from the server
       elif not self._loop._queue.empty():
         try:
           message = self._loop._queue.get_nowait()
         except Empty:
           message = None
 
+        # Exiting the waiting mode
         if message is not None:
           self._display_status(message)
           self._waiting_for_answer = False
           self._answer_timer = 0
           self._disable_if_waiting()
       else:
+        # Staying in waiting mode and incrementing timer
         self._answer_timer += 1
         if self._answer_timer > 30:
+          # Considering that the connection has timed out
           self._display_status("Error ! No answer from the stimulator")
           self._waiting_for_answer = False
           self._answer_timer = 0
           self._disable_if_waiting()
 
   def _try_connect(self) -> None:
-    self._display_connection_status(self._loop._connect_to_broker())
+    """Tries to connect to the server."""
+
+    self._connection_status_display.setText(self._loop._connect_to_broker())
     self._display_if_connected(self._loop._is_connected)
     self._disable_if_connected(self._loop._is_connected)
 
-  def _start_thread(self):
+  def _start_thread(self) -> None:
+    """Starts the :meth:`_gui_loop` in a thread, so that the update of the
+    display can be performed independently from interaction with
+    the interface."""
+
     self._thread = QThread()
     self._timer = Timer(gui=self, delay=1)
     self._timer.moveToThread(self._thread)
     self._thread.started.connect(self._timer.run)
     self._thread.start()
 
-  def _exit_thread(self):
+  def _exit_thread(self) -> None:
+    """Exits the :meth:`_gui_loop` thread when closing the interface window."""
+
     self._timer.stop()
     self._thread.exit()
     if self._thread.wait(5000):
       print("Stopped")
 
   def closeEvent(self, event) -> None:
+    """Re-writing the ``closeEvent`` handling so that it also stops the
+    :meth:`_gui_loop` thread."""
+
     self._exit_thread()
     event.accept()
 
