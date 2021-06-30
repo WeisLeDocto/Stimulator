@@ -241,6 +241,9 @@ class Graphical_interface(QMainWindow):
       # Checking if disconnected
       self._display_if_connected(self._loop._is_connected)
       self._disable_if_connected(self._loop._is_connected)
+      if not self._loop._is_connected:
+        self._x_data = []
+        self._y_data = []
 
       # Getting new messages from the server
       if not self._loop._answer_queue.empty():
@@ -258,6 +261,9 @@ class Graphical_interface(QMainWindow):
                              "answer")
         self._display_if_connected(self._loop._is_connected)
         self._disable_if_connected(self._loop._is_connected)
+        if not self._loop._is_connected:
+          self._x_data = []
+          self._y_data = []
         self._waiting_for_answer = False
         self._answer_timer = 0
         self._disable_if_waiting()
