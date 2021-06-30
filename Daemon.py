@@ -157,7 +157,7 @@ class Daemon_run:
     if not self._is_protocol_active:
       self._protocol = Popen(['python3', 'Protocol.py'])
       try:
-        self._protocol.wait(10)
+        self._protocol.wait(5)
         self._publish("Error ! Protocol crashed at starting")
       except TimeoutExpired:
         self._is_protocol_active = True
