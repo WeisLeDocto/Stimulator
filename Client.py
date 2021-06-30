@@ -226,9 +226,9 @@ class Graphical_interface(QMainWindow):
     """
 
     # Updating the graph
-    while not self._loop._data.empty():
+    while not self._loop._data_queue.empty():
       try:
-        data = self._loop._data.get_nowait()
+        data = self._loop._data_queue.get_nowait()
       except Empty:
         data = None
 
@@ -243,9 +243,9 @@ class Graphical_interface(QMainWindow):
       self._disable_if_connected(self._loop._is_connected)
 
       # Getting new messages from the server
-      if not self._loop._queue.empty():
+      if not self._loop._answer_queue.empty():
         try:
-          message = self._loop._queue.get_nowait()
+          message = self._loop._answer_queue.get_nowait()
         except Empty:
           message = None
 
@@ -263,9 +263,9 @@ class Graphical_interface(QMainWindow):
         self._disable_if_waiting()
 
       # Getting new messages from the server
-      elif not self._loop._queue.empty():
+      elif not self._loop._answer_queue.empty():
         try:
-          message = self._loop._queue.get_nowait()
+          message = self._loop._answer_queue.get_nowait()
         except Empty:
           message = None
 
@@ -345,8 +345,8 @@ class Client_loop:
     self._topic_in = topic_in
     self._topic_out = topic_out
     self._topic_data = topic_data
-    self._queue = Queue()
-    self._data = Queue()
+    self._answer_queue = Queue()
+    self._data_queue = Queue()
     self._client = mqtt.Client(str(time.time()))
     self._client.on_connect = self._on_connect
     self._client.on_message = self._on_message
@@ -373,9 +373,9 @@ class Client_loop:
   def _on_message(self, client, userdata, message) -> None:
     try:
       literal_eval(message.topic)
-      self._data.put_nowait(loads(message.payload))
+      self._data_queue.put_nowait(loads(message.payload))
     except ValueError:
-      self._queue.put_nowait(loads(message.payload))
+      self._answer_queue.put_nowait(loads(message.payload))
       print("Got message" + " : " + loads(message.payload))
     except UnpicklingError:
       print("Warning ! Message raised UnpicklingError, ignoring it")
