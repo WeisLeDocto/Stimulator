@@ -226,6 +226,7 @@ class Graphical_interface(QMainWindow):
     Used for updating the connection status in case the client gets
     disconnected from the server. Also manages the messages from the server
     when the interface is waiting for an answer after a command has bee issued.
+    And also updates the real-time graphs with the last received data.
     """
 
     # Updating the graph
