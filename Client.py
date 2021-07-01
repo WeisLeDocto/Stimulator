@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtWidgets import QStyle
+from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import QThread
 from PyQt5.QtCore import QObject
 from PyQt5.QtCore import QSize
@@ -256,6 +257,21 @@ class Graphical_interface(QMainWindow):
     Args:
       message: The command to send.
     """
+
+    if message == "Stop server":
+      mes_box = QMessageBox(QMessageBox.Warning,
+                            "Warning !",
+                            "Do you really want to stop the server ?\n"
+                            "It will stop any running protocol, and "
+                            "permanently disable the remote control of the "
+                            "Stimulator.\n"
+                            "The server cannot be restarted from this "
+                            "interface then.")
+      mes_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+      ret = mes_box.exec()
+
+      if ret != QMessageBox.Yes:
+        return
 
     if not self._loop._publish(message):
       self._display_status("Command sent successfully, waiting for answer")
