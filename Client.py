@@ -50,7 +50,7 @@ class Timer(QObject):
       self._gui._gui_loop()
       time.sleep(self._delay)
 
-  def stop(self):
+  def stop(self) -> None:
     """Sets the :attr:`_stop` flag to :obj:`False`."""
     self._stop = True
 
@@ -58,7 +58,7 @@ class Timer(QObject):
 class Graphical_interface(QMainWindow):
   """Class for building and displaying the graphical user interface."""
 
-  def __init__(self, loop):
+  def __init__(self, loop) -> None:
     """Initializes the main window and sets the flags.
 
     Args:
@@ -73,7 +73,7 @@ class Graphical_interface(QMainWindow):
     self._stopped = False
 
   def __call__(self) -> None:
-    """Creates and starts the interface."""
+    """Creates and displays the interface."""
 
     self._set_layout()
 
@@ -95,7 +95,7 @@ class Graphical_interface(QMainWindow):
 
     self._start_thread()
 
-  def _set_layout(self):
+  def _set_layout(self) -> None:
     """Creates the widgets and places them in the main window."""
 
     self.setWindowTitle('Stimulator Interface')
@@ -167,7 +167,7 @@ class Graphical_interface(QMainWindow):
     self._is_busy_status_display = QLabel("")
     self._generalLayout.addWidget(self._is_busy_status_display)
 
-  def _set_connections(self):
+  def _set_connections(self) -> None:
     """Sets the actions to perform when interacting with the widgets."""
 
     self._connect_button.clicked.connect(self._try_connect)
@@ -237,6 +237,15 @@ class Graphical_interface(QMainWindow):
       self._status_display.setStyleSheet("color: black;")
 
   def _display_busy(self, status: int) -> None:
+    """Displays whether the Stimulator is currently performing stimulation.
+
+    It displays a warning message 10 minutes before the next stimulation phase
+    starts.
+
+    Args:
+      status: Index specifying what message to display.
+    """
+
     if status == 0:
       self._is_busy_status_display.setText("Not currently stimulating")
       self._is_busy_status_display.setStyleSheet("color: green;")
@@ -414,6 +423,9 @@ class Graphical_interface(QMainWindow):
 
 
 class Client_loop:
+  """Class managing the connection to the server, i.e. sending commands and
+  receiving data."""
+
   def __init__(self,
                port: int,
                address: str = 'localhost',
@@ -421,6 +433,17 @@ class Client_loop:
                topic_in: str = 'Server_status',
                topic_data: tuple = ('t', 'pos'),
                topic_is_busy: tuple = ('busy',)) -> None:
+    """Checks the arguments validity, sets the server callbacks.
+
+    Args:
+      port: The server port to use.
+      address: The server network address.
+      topic_out: The topic for sending commands to the server.
+      topic_in: The topic for receiving messages from the server.
+      topic_data: The topic for receiving data from the server.
+      topic_is_busy: The topic for receiving the business status of the server.
+    """
+
     if not isinstance(port, int):
       raise TypeError("port should be an integer")
     self._port = port
@@ -436,6 +459,7 @@ class Client_loop:
     if not isinstance(topic_is_busy, tuple):
       raise TypeError("topic_is_busy should be a tuple")
 
+    # Setting the topics and the queues
     self._topic_in = topic_in
     self._topic_out = topic_out
     self._topic_is_busy = topic_is_busy
@@ -443,16 +467,22 @@ class Client_loop:
     self._answer_queue = Queue()
     self._data_queue = Queue()
     self._is_busy_queue = Queue()
+
+    # Setting the mqtt client
     self._client = mqtt.Client(str(time.time()))
     self._client.on_connect = self._on_connect
     self._client.on_message = self._on_message
     self._client.on_disconnect = self._on_disconnect
     self._client.reconnect_delay_set(max_delay=10)
 
+    # Setting the flags
     self._is_connected = False
     self._connected_once = False
 
-  def __call__(self):
+  def __call__(self) -> None:
+    """Simply displays the interface window, and disconnects from the server
+    at exit."""
+
     try:
       self.app = QApplication(sys.argv)
       Graphical_interface(self)()
@@ -462,23 +492,44 @@ class Client_loop:
       self._client.disconnect()
 
   def _publish(self, message: str) -> None:
+    """Wrapper for sending commands to the server.
+
+    Args:
+      message: The command to send.
+    """
+
     return self._client.publish(topic=self._topic_out,
                                 payload=dumps(message),
                                 qos=2)[0]
 
   def _on_message(self, client, userdata, message) -> None:
+    """Callback executed upon reception of a message or data from the
+    server.
+
+    The message or data is put in a queue, waiting to be processed by the
+    graphical interface.
+    """
+
     try:
+      # If the message contains data
       if literal_eval(message.topic) == self._topic_data:
         self._data_queue.put_nowait(loads(message.payload))
       elif literal_eval(message.topic) == self._topic_is_busy:
         self._is_busy_queue.put_nowait(loads(message.payload))
     except ValueError:
+      # If the message contains text
       self._answer_queue.put_nowait(loads(message.payload))
       print("Got message" + " : " + loads(message.payload))
     except UnpicklingError:
+      # If the message hasn't been pickled before sending
       print("Warning ! Message raised UnpicklingError, ignoring it")
 
   def _on_connect(self, client, userdata, flags, rc) -> None:
+    """Callback executed when connecting to the server.
+
+    Simply subscribes to all the necessary topics.
+    """
+
     self._client.subscribe(topic=self._topic_in, qos=2)
     self._client.subscribe(topic=str(self._topic_data), qos=2)
     self._client.subscribe(topic=str(self._topic_is_busy), qos=2)
@@ -487,9 +538,19 @@ class Client_loop:
     self._client.loop_start()
 
   def _on_disconnect(self, client, userdata, rc) -> None:
+    """Sets the :attr:`_is_connected` flag to :obj:`False`."""
+
     self._is_connected = False
 
   def _connect_to_broker(self) -> str:
+    """Simply connects to the server.
+
+    Manages the different connection issues that could occur.
+
+    Returns:
+      A text message to be displayed to the user in case connection failed.
+    """
+
     # Connecting to the broker
     try:
       if self._connected_once:
