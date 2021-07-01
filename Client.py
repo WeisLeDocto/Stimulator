@@ -15,8 +15,10 @@ from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QPushButton
+from PyQt5.QtWidgets import QStyle
 from PyQt5.QtCore import QThread
 from PyQt5.QtCore import QObject
+from PyQt5.QtCore import QSize
 
 from pyqtgraph import PlotWidget
 from pyqtgraph import mkPen
@@ -112,15 +114,27 @@ class Graphical_interface(QMainWindow):
     # Buttons and labels for managing commands to the server
     self._status_button = QPushButton("Print status")
     self._generalLayout.addWidget(self._status_button)
+    self._status_button.setIcon(self.style().standardIcon(
+      QStyle.SP_MessageBoxInformation))
+    self._status_button.setIconSize(QSize(12, 12))
 
     self._start_protocol_button = QPushButton("Start protocol")
     self._generalLayout.addWidget(self._start_protocol_button)
+    self._start_protocol_button.setIcon(self.style().standardIcon(
+      QStyle.SP_MediaPlay))
+    self._start_protocol_button.setIconSize(QSize(12, 12))
 
     self._stop_protocol_button = QPushButton("Stop protocol")
     self._generalLayout.addWidget(self._stop_protocol_button)
+    self._stop_protocol_button.setIcon(self.style().standardIcon(
+      QStyle.SP_MediaStop))
+    self._stop_protocol_button.setIconSize(QSize(12, 12))
 
     self._stop_server_button = QPushButton("Stop server")
     self._generalLayout.addWidget(self._stop_server_button)
+    self._stop_server_button.setIcon(self.style().standardIcon(
+      QStyle.SP_BrowserStop))
+    self._stop_server_button.setIconSize(QSize(12, 12))
 
     # Graphs
     self._status_display = QLabel("")
