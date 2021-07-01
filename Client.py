@@ -110,6 +110,9 @@ class Graphical_interface(QMainWindow):
     # Buttons and labels for managing the connection to the server
     self._connect_button = QPushButton("Connect to stimulator")
     self._generalLayout.addWidget(self._connect_button)
+    self._connect_button.setIcon(self.style().standardIcon(
+      QStyle.SP_CommandLink))
+    self._connect_button.setIconSize(QSize(12, 12))
 
     self._is_connected_display = QLabel("")
     self._generalLayout.addWidget(self._is_connected_display)
