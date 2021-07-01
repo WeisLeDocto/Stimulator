@@ -85,6 +85,11 @@ class Graphical_interface(QMainWindow):
     self._y_data = []
     self._curve = self._graph.plot(self._x_data, self._y_data, pen=mkPen('k'))
 
+    delta_x = int((self._loop.app.desktop().availableGeometry().width() -
+                self.width()) / 2)
+    delta_y = int((self._loop.app.desktop().availableGeometry().height() -
+                self.height()) / 2)
+    self.move(delta_x, delta_y)
     self.show()
 
     self._start_thread()
@@ -430,9 +435,9 @@ class Client_loop:
 
   def __call__(self):
     try:
-      app = QApplication(sys.argv)
+      self.app = QApplication(sys.argv)
       Graphical_interface(self)()
-      sys.exit(app.exec_())
+      sys.exit(self.app.exec_())
     finally:
       self._client.loop_stop()
       self._client.disconnect()
