@@ -47,7 +47,7 @@ class Timer(QObject):
     """Runs an infinite loop for refreshing the display."""
 
     while not self._stop:
-      self._gui._gui_loop()
+      self._gui.gui_loop()
       time.sleep(self._delay)
 
   def stop(self) -> None:
@@ -77,8 +77,8 @@ class Graphical_interface(QMainWindow):
 
     self._set_layout()
 
-    self._display_if_connected(self._loop._is_connected)
-    self._disable_if_connected(self._loop._is_connected)
+    self._display_if_connected(self._loop.is_connected)
+    self._disable_if_connected(self._loop.is_connected)
 
     self._set_connections()
 
@@ -87,9 +87,9 @@ class Graphical_interface(QMainWindow):
     self._curve = self._graph.plot(self._x_data, self._y_data, pen=mkPen('k'))
 
     delta_x = int((self._loop.app.desktop().availableGeometry().width() -
-                self.width()) / 2)
+                  self.width()) / 2)
     delta_y = int((self._loop.app.desktop().availableGeometry().height() -
-                self.height()) / 2)
+                  self.height()) / 2)
     self.move(delta_x, delta_y)
     self.show()
 
@@ -285,14 +285,14 @@ class Graphical_interface(QMainWindow):
       if ret != QMessageBox.Yes:
         return
 
-    if not self._loop._publish(message):
+    if not self._loop.publish(message):
       self._display_status("Command sent successfully, waiting for answer")
       self._waiting_for_answer = True
       self._disable_if_waiting()
     else:
       self._display_status("Error ! Command not sent")
 
-  def _gui_loop(self) -> None:
+  def gui_loop(self) -> None:
     """Loop for updating the display on a regular basis.
 
     Used for updating the connection status in case the client gets
@@ -302,9 +302,9 @@ class Graphical_interface(QMainWindow):
     """
 
     # Updating the graph
-    while not self._loop._data_queue.empty():
+    while not self._loop.data_queue.empty():
       try:
-        data = self._loop._data_queue.get_nowait()
+        data = self._loop.data_queue.get_nowait()
       except Empty:
         data = None
 
@@ -314,9 +314,9 @@ class Graphical_interface(QMainWindow):
     self._curve.setData(self._x_data, self._y_data)
 
     # Updating the business status
-    while not self._loop._is_busy_queue.empty():
+    while not self._loop.is_busy_queue.empty():
       try:
-        busy = self._loop._is_busy_queue.get_nowait()
+        busy = self._loop.is_busy_queue.get_nowait()
       except Empty:
         busy = None
 
@@ -326,17 +326,17 @@ class Graphical_interface(QMainWindow):
 
     if not self._waiting_for_answer:
       # Checking if disconnected
-      self._display_if_connected(self._loop._is_connected)
-      self._disable_if_connected(self._loop._is_connected)
-      if not self._loop._is_connected:
-        self._x_data = []
-        self._y_data = []
+      self._display_if_connected(self._loop.is_connected)
+      self._disable_if_connected(self._loop.is_connected)
+      if not self._loop.is_connected:
+        self._x_data.clear()
+        self._y_data.clear()
         self._display_busy(-1)
 
       # Getting new messages from the server
-      if not self._loop._answer_queue.empty():
+      if not self._loop.answer_queue.empty():
         try:
-          message = self._loop._answer_queue.get_nowait()
+          message = self._loop.answer_queue.get_nowait()
         except Empty:
           message = None
 
@@ -344,23 +344,23 @@ class Graphical_interface(QMainWindow):
           self._display_status(message)
     else:
       # Checking if disconnected
-      if not self._loop._is_connected:
+      if not self._loop.is_connected:
         self._display_status("Error ! Disconnected while waiting for an "
                              "answer")
-        self._display_if_connected(self._loop._is_connected)
-        self._disable_if_connected(self._loop._is_connected)
-        if not self._loop._is_connected:
-          self._x_data = []
-          self._y_data = []
+        self._display_if_connected(self._loop.is_connected)
+        self._disable_if_connected(self._loop.is_connected)
+        if not self._loop.is_connected:
+          self._x_data.clear()
+          self._y_data.clear()
           self._display_busy(-1)
         self._waiting_for_answer = False
         self._answer_timer = 0
         self._disable_if_waiting()
 
       # Getting new messages from the server
-      elif not self._loop._answer_queue.empty():
+      elif not self._loop.answer_queue.empty():
         try:
-          message = self._loop._answer_queue.get_nowait()
+          message = self._loop.answer_queue.get_nowait()
         except Empty:
           message = None
 
@@ -370,8 +370,8 @@ class Graphical_interface(QMainWindow):
           if message in ["Protocol terminated gracefully",
                          "Stopping the server and the MQTT broker"]:
             self._display_busy(-1)
-            self._x_data = []
-            self._y_data = []
+            self._x_data.clear()
+            self._y_data.clear()
           self._waiting_for_answer = False
           self._answer_timer = 0
           self._disable_if_waiting()
@@ -388,9 +388,9 @@ class Graphical_interface(QMainWindow):
   def _try_connect(self) -> None:
     """Tries to connect to the server."""
 
-    self._connection_status_display.setText(self._loop._connect_to_broker())
-    self._display_if_connected(self._loop._is_connected)
-    self._disable_if_connected(self._loop._is_connected)
+    self._connection_status_display.setText(self._loop.connect_to_broker())
+    self._display_if_connected(self._loop.is_connected)
+    self._disable_if_connected(self._loop.is_connected)
 
   def _start_thread(self) -> None:
     """Starts the :meth:`_gui_loop` in a thread, so that the update of the
@@ -464,9 +464,9 @@ class Client_loop:
     self._topic_out = topic_out
     self._topic_is_busy = topic_is_busy
     self._topic_data = topic_data
-    self._answer_queue = Queue()
-    self._data_queue = Queue()
-    self._is_busy_queue = Queue()
+    self.answer_queue = Queue()
+    self.data_queue = Queue()
+    self.is_busy_queue = Queue()
 
     # Setting the mqtt client
     self._client = mqtt.Client(str(time.time()))
@@ -476,7 +476,7 @@ class Client_loop:
     self._client.reconnect_delay_set(max_delay=10)
 
     # Setting the flags
-    self._is_connected = False
+    self.is_connected = False
     self._connected_once = False
 
   def __call__(self) -> None:
@@ -491,7 +491,7 @@ class Client_loop:
       self._client.loop_stop()
       self._client.disconnect()
 
-  def _publish(self, message: str) -> None:
+  def publish(self, message: str) -> None:
     """Wrapper for sending commands to the server.
 
     Args:
@@ -513,12 +513,12 @@ class Client_loop:
     try:
       # If the message contains data
       if literal_eval(message.topic) == self._topic_data:
-        self._data_queue.put_nowait(loads(message.payload))
+        self.data_queue.put_nowait(loads(message.payload))
       elif literal_eval(message.topic) == self._topic_is_busy:
-        self._is_busy_queue.put_nowait(loads(message.payload))
+        self.is_busy_queue.put_nowait(loads(message.payload))
     except ValueError:
       # If the message contains text
-      self._answer_queue.put_nowait(loads(message.payload))
+      self.answer_queue.put_nowait(loads(message.payload))
       print("Got message" + " : " + loads(message.payload))
     except UnpicklingError:
       # If the message hasn't been pickled before sending
@@ -534,15 +534,15 @@ class Client_loop:
     self._client.subscribe(topic=str(self._topic_data), qos=2)
     self._client.subscribe(topic=str(self._topic_is_busy), qos=2)
     print("Subscribed")
-    self._is_connected = True
+    self.is_connected = True
     self._client.loop_start()
 
   def _on_disconnect(self, client, userdata, rc) -> None:
-    """Sets the :attr:`_is_connected` flag to :obj:`False`."""
+    """Sets the :attr:`is_connected` flag to :obj:`False`."""
 
-    self._is_connected = False
+    self.is_connected = False
 
-  def _connect_to_broker(self) -> str:
+  def connect_to_broker(self) -> str:
     """Simply connects to the server.
 
     Manages the different connection issues that could occur.
@@ -557,20 +557,20 @@ class Client_loop:
         self._client.reconnect()
       else:
         self._client.connect(host=self._address, port=self._port, keepalive=10)
-      self._is_connected = True
+      self.is_connected = True
       self._connected_once = True
     except socket.timeout:
       print("Impossible to reach the given address, aborting")
-      self._is_connected = False
+      self.is_connected = False
       return "Address unreachable"
     except socket.gaierror:
       print("Invalid address given, please check the spelling")
-      self._is_connected = False
+      self.is_connected = False
       return "Address invalid"
     except ConnectionRefusedError:
       print("Connection refused, the broker may not be running or you may "
             "not have the rights to connect")
-      self._is_connected = False
+      self.is_connected = False
       return "Server not running"
 
     self._client.loop_start()
