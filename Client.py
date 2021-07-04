@@ -1,5 +1,29 @@
 # coding: utf-8
 
+# TODO:
+# Password for connecting to the broker
+# One or two servers ?
+# Split hhe files and reorganize them
+# Make protocol transferable in Python
+# Test for protocol consistency
+# Possibility to choose among several protocols
+# Possibility to choose which protocol to write
+# Possibility to name the protocols
+# Possibility to download the protocols and see what they look like
+# Interface for building protocols ?
+
+# Multi-protocol management:
+# On connect, the client asks for the available protocols and the servers sends
+# The client stores the list of available protocols
+# When uploading a protocol, it actually sends a dict
+# The server writes it in a file according to the name
+# The client asks again for the list of available protocols
+# The client can ask the server to send the dict of a given protocol
+# The client can plot the locally available protocols from the interface
+
+# The program that builds a protocol actually just writes the dict in a file
+# Possibility to visualize the protocol before writing it
+
 import time
 import paho.mqtt.client as mqtt
 from queue import Queue, Empty
