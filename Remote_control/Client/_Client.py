@@ -2,14 +2,6 @@
 
 # TODO:
 # Password for connecting to the broker
-# Possibility to download the protocols and see what they look like
-
-# Multi-protocol management:
-# The client can ask the server to send the dict of a given protocol
-# The client can plot the locally available protocols from the interface
-
-# The program that builds a protocol actually just writes the dict in a file
-# Possibility to visualize the protocol before writing it
 
 import time
 import paho.mqtt.client as mqtt
