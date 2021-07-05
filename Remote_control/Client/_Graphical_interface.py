@@ -67,6 +67,7 @@ class Graphical_interface(QMainWindow):
     self._answer_timer = 0
     self._busy = None
     self._stopped = False
+    self._protocol_list = []
 
   def __call__(self) -> None:
     """Creates and displays the interface."""
@@ -396,7 +397,7 @@ class Graphical_interface(QMainWindow):
       try:
         self._protocol_list = self._loop.protocol_list_queue.get_nowait()
       except Empty:
-        self._protocol_list = []
+        pass
 
     if not self._waiting_for_answer:
       # Checking if disconnected
@@ -406,6 +407,7 @@ class Graphical_interface(QMainWindow):
         self._x_data.clear()
         self._y_data.clear()
         self._display_busy(-1)
+        self._protocol_list = []
 
       # Getting new messages from the server
       if not self._loop.answer_queue.empty():
@@ -418,15 +420,15 @@ class Graphical_interface(QMainWindow):
           self._display_status(message)
     else:
       # Checking if disconnected
+      self._display_if_connected(self._loop.is_connected)
+      self._disable_if_connected(self._loop.is_connected)
       if not self._loop.is_connected:
         self._display_status("Error ! Disconnected while waiting for an "
                              "answer")
-        self._display_if_connected(self._loop.is_connected)
-        self._disable_if_connected(self._loop.is_connected)
-        if not self._loop.is_connected:
-          self._x_data.clear()
-          self._y_data.clear()
-          self._display_busy(-1)
+        self._x_data.clear()
+        self._y_data.clear()
+        self._display_busy(-1)
+        self._protocol_list = []
         self._waiting_for_answer = False
         self._answer_timer = 0
         self._disable_if_waiting()
