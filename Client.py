@@ -3,7 +3,8 @@
 # TODO:
 # Password for connecting to the broker
 # One or two servers ?
-# Split hhe files and reorganize them
+# Limit display to a certain amount of information
+# Split the files and reorganize them
 # Make protocol transferable in Python
 # Test for protocol consistency
 # Possibility to choose among several protocols
@@ -41,6 +42,7 @@ from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtWidgets import QStyle
 from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QInputDialog
 from PyQt5.QtCore import QThread
 from PyQt5.QtCore import QObject
 from PyQt5.QtCore import QSize
@@ -125,7 +127,7 @@ class Graphical_interface(QMainWindow):
     self.setWindowTitle('Stimulator Interface')
 
     # General layout
-    self.setGeometry(550, 150, 300, 500)
+    self.setGeometry(550, 150, 300, 650)
     self._generalLayout = QVBoxLayout()
     self._centralWidget = QWidget(self)
     self.setCentralWidget(self._centralWidget)
@@ -143,6 +145,22 @@ class Graphical_interface(QMainWindow):
 
     self._connection_status_display = QLabel("")
     self._generalLayout.addWidget(self._connection_status_display)
+
+    # Buttons for managing protocols
+    self._upload_protocol_button = QPushButton("Upload protocol")
+    self._generalLayout.addWidget(self._upload_protocol_button)
+    self._upload_protocol_button.setIcon(self.style().standardIcon(
+      QStyle.SP_FileDialogToParent))
+    self._upload_protocol_button.setIconSize(QSize(12, 12))
+
+    self._download_protocol_button = QPushButton("Download protocol")
+    self._generalLayout.addWidget(self._download_protocol_button)
+    self._download_protocol_button.setIcon(self.style().standardIcon(
+      QStyle.SP_ArrowDown))
+    self._download_protocol_button.setIconSize(QSize(12, 12))
+
+    self._protocol_status_display = QLabel("")
+    self._generalLayout.addWidget(self._protocol_status_display)
 
     # Buttons and labels for managing commands to the server
     self._status_button = QPushButton("Print status")
@@ -196,6 +214,12 @@ class Graphical_interface(QMainWindow):
 
     self._connect_button.clicked.connect(self._try_connect)
 
+    self._upload_protocol_button.clicked.connect(
+      partial(self._send_server, self._upload_protocol_button.text()))
+
+    self._download_protocol_button.clicked.connect(
+      partial(self._send_server, self._download_protocol_button.text()))
+
     self._status_button.clicked.connect(
       partial(self._send_server, self._status_button.text()))
 
@@ -231,6 +255,8 @@ class Graphical_interface(QMainWindow):
     """
 
     self._connect_button.setEnabled(not bool_)
+    self._upload_protocol_button.setEnabled(bool_)
+    self._download_protocol_button.setEnabled(bool_)
     self._status_button.setEnabled(bool_)
     self._start_protocol_button.setEnabled(bool_)
     self._stop_protocol_button.setEnabled(bool_)
@@ -242,6 +268,8 @@ class Graphical_interface(QMainWindow):
     """Disables the interaction buttons when waiting for an answer from the
     client"""
 
+    self._upload_protocol_button.setEnabled(not self._waiting_for_answer)
+    self._download_protocol_button.setEnabled(not self._waiting_for_answer)
     self._status_button.setEnabled(not self._waiting_for_answer)
     self._start_protocol_button.setEnabled(not self._waiting_for_answer)
     self._stop_protocol_button.setEnabled(not self._waiting_for_answer)
@@ -308,6 +336,18 @@ class Graphical_interface(QMainWindow):
 
       if ret != QMessageBox.Yes:
         return
+
+    elif message == "Upload protocol":
+      items = ['a', 'b']
+      item, ok = QInputDialog.getItem(self,
+                                      "Protocol selection",
+                                      "Please select the protocol to upload",
+                                      items,
+                                      0,
+                                      False)
+      if not ok:
+        return
+      message += [" " + item]
 
     if not self._loop.publish(message):
       self._display_status("Command sent successfully, waiting for answer")
