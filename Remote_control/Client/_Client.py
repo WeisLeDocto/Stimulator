@@ -2,8 +2,6 @@
 
 # TODO:
 # Password for connecting to the broker
-# Limit display to a certain amount of information
-# Test for protocol consistency
 # Possibility to download the protocols and see what they look like
 
 # Multi-protocol management:

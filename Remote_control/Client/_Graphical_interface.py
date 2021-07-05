@@ -68,6 +68,7 @@ class Graphical_interface(QMainWindow):
     self._busy = None
     self._stopped = False
     self._protocol_list = []
+    self._protocol_to_download = None
 
   def __call__(self) -> None:
     """Creates and displays the interface."""
@@ -286,6 +287,23 @@ class Graphical_interface(QMainWindow):
                                            "received")
       self._is_busy_status_display.setStyleSheet("color: red;")
 
+  @staticmethod
+  def _save_protocol(protocol: list, name: str) -> None:
+    path = os.path.dirname(os.path.abspath(__file__))
+    path = path.replace("/Client", "")
+    if not os.path.exists(path + "/Protocols/"):
+      os.mkdir(path + "/Protocols/")
+      with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
+        init_file.write("# coding: utf-8" + "\n")
+        init_file.write("\n")
+        init_file.write("from .Protocol_" + name + " import Led, Mecha, Elec"
+                        + "\n")
+
+    with open(path + "/Protocols/Protocol_" + name + ".py", 'w') as \
+         protocol_file:
+      for line in protocol:
+        protocol_file.write(line)
+
   def _send_server(self, message: str) -> None:
     """Sends command to the server and displays the corresponding status.
 
@@ -310,8 +328,7 @@ class Graphical_interface(QMainWindow):
 
     elif message == "Upload protocol":
       try:
-        path = os.path.dirname(os.path.abspath(__file__))
-        path = path.replace("/Client", "")
+        path = os.path.dirname(os.path.abspath(__file__)).replace("/Client", "")
         protocol_list = os.listdir(path + "/Protocols/")
       except FileNotFoundError:
         self._display_status("Error ! No protocol found. Please create one")
@@ -351,6 +368,22 @@ class Graphical_interface(QMainWindow):
                                       False)
       if not ok:
         return
+      message += " " + item
+
+    elif message == "Download protocol":
+      items = self._protocol_list
+      if not items:
+        self._display_status("Error ! No protocol to download")
+        return
+      item, ok = QInputDialog.getItem(self,
+                                      "Protocol selection",
+                                      "Please select the protocol to download",
+                                      items,
+                                      0,
+                                      False)
+      if not ok:
+        return
+      self._protocol_to_download = item
       message += " " + item
 
     if not self._loop.publish(message):
@@ -401,6 +434,17 @@ class Graphical_interface(QMainWindow):
         self._protocol_list = self._loop.protocol_list_queue.get_nowait()
       except Empty:
         pass
+
+    # Downloading protocol
+    while not self._loop.protocol_queue.empty():
+      try:
+        protocol = self._loop.protocol_queue.get_nowait()
+      except Empty:
+        protocol = None
+
+      if protocol is not None and self._protocol_to_download is not None:
+        self._save_protocol(protocol, self._protocol_to_download)
+        self._protocol_to_download = None
 
     if not self._waiting_for_answer:
       # Checking if disconnected

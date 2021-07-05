@@ -208,6 +208,10 @@ class Daemon_run:
           print("Save protocol")
           self._save_protocol(message.replace("Upload protocol ", ""))
 
+        elif "Download protocol" in message:
+          print("Send protocol")
+          self._send_protocol(message.replace("Download protocol ", ""))
+
         elif "Start protocol" in message:
           print("Start protocol")
           self._start_protocol(message.replace("Start protocol ", ""))
@@ -255,6 +259,21 @@ class Daemon_run:
                          payload=dumps(protocols),
                          qos=2)
     self._publish("Received list of protocols")
+
+  def _send_protocol(self, name: str) -> None:
+    protocol = []
+    path = dirname(abspath(__file__)).replace("/Server", "")
+    with open(path + "/Protocols/Protocol_" + name + ".py", 'r') \
+         as protocol_file:
+      for line in protocol_file:
+        protocol.append(line)
+
+    if self._client.publish(topic=self._topic_protocol_out,
+                            payload=dumps(protocol),
+                            qos=2)[0]:
+      self._publish("Error ! Protocol not properly sent")
+    else:
+      self._publish("Protocol successfully downloaded")
 
   def _save_protocol(self, name: str) -> None:
     try:
