@@ -129,4 +129,5 @@ dmypy.json
 .pyre/
 
 # Protocol files
-Protocols/
+Client/Protocols/
+Server/Protocols/
