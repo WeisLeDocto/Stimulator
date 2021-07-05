@@ -3,3 +3,4 @@ paho-mqtt>=1.5.1
 pyqt5>=5.12.2
 git+git://github.com/LaboratoireMecaniqueLille/crappy@master#egg=crappy
 pyqtgraph>=0.12.1
+matplotlib>=3.3.3
