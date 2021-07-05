@@ -379,6 +379,9 @@ class Graphical_interface(QMainWindow):
       if data is not None:
         self._x_data.extend(data[0])
         self._y_data.extend(data[1])
+        if len(self._x_data) > 1000:
+          self._x_data = self._x_data[-1000:]
+          self._y_data = self._y_data[-1000:]
     self._curve.setData(self._x_data, self._y_data)
 
     # Updating the business status
