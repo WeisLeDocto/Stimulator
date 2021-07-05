@@ -243,7 +243,8 @@ class Daemon_run:
           init_file.write("\n")
           init_file.write("pass" + "\n")
 
-      with open(path + "/Protocols/" + name + ".py", 'w') as protocol_file:
+      with open(path + "/Protocols/Protocol_" + name + ".py", 'w') as \
+           protocol_file:
         for line in protocol:
           protocol_file.write(line)
       self._publish("Protocol successfully uploaded")
