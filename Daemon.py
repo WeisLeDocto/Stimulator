@@ -232,6 +232,7 @@ class Daemon_run:
            protocol_file:
         for line in protocol:
           protocol_file.write(line)
+      self._publish("Protocol successfully uploaded")
     except Empty:
       self._publish("Error ! No protocol received")
 
