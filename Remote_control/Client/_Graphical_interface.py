@@ -345,6 +345,14 @@ class Graphical_interface(QMainWindow):
         return
       message += " " + item
 
+      password, ok = QInputDialog.getText(self,
+                                          "Password",
+                                          "Please enter the password for "
+                                          "uploading files :")
+      if not ok:
+        return
+      message += " " + password
+
       protocol = []
       with open(path + "/Protocols/Protocol_" + item + ".py", 'r') \
            as protocol_file:

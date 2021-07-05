@@ -206,7 +206,8 @@ class Daemon_run:
 
         elif "Upload protocol" in message:
           print("Save protocol")
-          self._save_protocol(message.replace("Upload protocol ", ""))
+          self._save_protocol(*message.replace("Upload protocol ", "").
+                              split(" "))
 
         elif "Download protocol" in message:
           print("Send protocol")
@@ -275,12 +276,17 @@ class Daemon_run:
     else:
       self._publish("Protocol successfully downloaded")
 
-  def _save_protocol(self, name: str) -> None:
+  def _save_protocol(self, name: str, p_word: str) -> None:
+    path = dirname(abspath(__file__)).replace("/Server", "")
+    with open(path + "/password.txt", 'r') as password_file:
+      password = password_file.read()
+    if p_word != password:
+      self._publish("Error ! Wrong password")
+      return
+
     try:
       protocol = self._protocol_queue.get(timeout=5)
 
-      path = dirname(abspath(__file__))
-      path = path.replace("/Server", "")
       if not exists(path + "/Protocols/"):
         mkdir(path + "/Protocols/")
         with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
