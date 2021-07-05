@@ -34,7 +34,7 @@ from ast import literal_eval
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from _Graphical_interface import Graphical_interface
+from ._Graphical_interface import Graphical_interface
 
 
 class Client_loop:

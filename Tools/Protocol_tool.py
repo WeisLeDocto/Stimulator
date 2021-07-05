@@ -23,7 +23,7 @@ class Stimulation_protocol:
 
     self._py_file = ["# coding: utf-8" + "\n",
                      "\n",
-                     "from .._Protocol_tool import Stimulation_protocol" + "\n",
+                     "from Tools import Stimulation_protocol" + "\n",
                      "\n",
                      ]
 
@@ -128,17 +128,19 @@ class Stimulation_protocol:
       if answer in ["Yes", "yes"]:
 
         path = os.path.dirname(os.path.abspath(__file__))
+        path = path.replace("/Tools", "")
 
-        if not os.path.exists(path + "/Protocols/"):
-          os.mkdir(path + "/Protocols/")
-          with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
+        if not os.path.exists(path + "/Client/Protocols/"):
+          os.mkdir(path + "/Client/Protocols/")
+          with open(path + "/Client/Protocols/" + "__init__.py", 'w') \
+               as init_file:
             init_file.write("# coding: utf-8" + "\n")
             init_file.write("\n")
             init_file.write("pass" + "\n")
 
         with open(path + "/Create_protocol.py", 'r') as file:
-          with open(path + "/Protocols/" + "Protocol_" + name + ".py", 'w') \
-                    as exported_file:
+          with open(path + "/Client/Protocols/" + "Protocol_" + name +
+                    ".py", 'w') as exported_file:
 
             for line in self._py_file:
               exported_file.write(line)

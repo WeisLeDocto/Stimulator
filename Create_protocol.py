@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from _Protocol_tool import Stimulation_protocol
+from Tools import Stimulation_protocol
 
 if __name__ == '__main__':
 
