@@ -128,8 +128,10 @@ class Stimulation_protocol:
       if answer in ["Yes", "yes"]:
 
         path = os.path.dirname(os.path.abspath(__file__))
+        if not os.path.exists(path + "/Protocols/"):
+          os.mkdir(path + "/Protocols/")
         with open(__file__, 'r') as file:
-          with open(path + "/" + name + ".py", 'w') as exported_file:
+          with open(path + "/Protocols/" + name + ".py", 'w') as exported_file:
 
             for line in self._py_file:
               exported_file.write(line)
