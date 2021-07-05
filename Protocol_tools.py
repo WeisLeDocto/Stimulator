@@ -21,6 +21,12 @@ class Stimulation_protocol:
     self._elec_stimu_on = [(0., False)]
     self._position = [(0., 0.)]
 
+    self._py_file = ["# coding: utf-8" + "\n",
+                     "\n",
+                     "from Protocol_tools import Stimulation_protocol" + "\n",
+                     "\n",
+                     ]
+
   def add_continuous_stretching(self,
                                 travel_length_mm: float,
                                 resting_time_ratio: float,
@@ -114,22 +120,30 @@ class Stimulation_protocol:
     self._elec_stimu_on.append((rest_duration_hours * 60 * 60, False))
 
   def save_protocol(self, name: str) -> None:
-    led_generator, mecha_on, elec_on, stimu_on, position = \
-      self._build_led_list()
-    self._plot_protocol(mecha_on, elec_on, stimu_on, position)
+    self._plot_protocol(*self._build_led_list())
 
     print("Do you want to save the current protocol ?")
     while True:
       answer = input("Yes / No :   ")
       if answer in ["Yes", "yes"]:
+
         path = os.path.dirname(os.path.abspath(__file__))
-        if not os.path.exists(path + "/Protocols/"):
-          os.mkdir(path + "/Protocols/")
-        with open(path + "/Protocols/" + name + ".py", 'w') as file:
-          file.write("Protocol_list = [" + "\n")
-          for dic in led_generator:
-            file.write(str(dic) + "," + "\n")
-          file.write("]")
+        with open(__file__, 'r') as file:
+          with open(path + "/" + name + ".py", 'w') as exported_file:
+
+            for line in self._py_file:
+              exported_file.write(line)
+
+            copy = False
+            for line in file:
+              if line.strip() == "if __name__ == '__main__':":
+                copy = True
+              if "save" in line.strip():
+                copy = False
+              if copy:
+                exported_file.write(line)
+            exported_file.write("  Led, Mecha, Elec = new_prot.export()" + "\n")
+
         print("Protocol saved !")
         break
       elif answer in ["No", "no"]:
@@ -137,6 +151,10 @@ class Stimulation_protocol:
         break
       else:
         print("Please answer Yes or No !")
+
+  def export(self) -> tuple:
+    self._build_led_list()
+    return self._list_led, self._mecha_stimu, self._elec_stimu
 
   def _add_mecha(self,
                  position: float,
@@ -243,28 +261,28 @@ class Stimulation_protocol:
         index_mecha += 1
 
     # Building the list of dictionaries for driving the LED
-    list_led = []
+    self._list_led = []
     for tuple1, tuple2 in zip(is_active_timestamps[:-1],
                               is_active_timestamps[1:]):
       if not tuple1[1] and (
            (tuple2[0] - tuple1[0]) > self._time_orange_on_minutes * 60):
-        list_led.append(
+        self._list_led.append(
           {'type': 'constant',
            'condition': 'delay={}'.format((tuple2[0] - tuple1[0]) -
                                           self._time_orange_on_minutes * 60),
            'value': 0})
-        list_led.append(
+        self._list_led.append(
           {'type': 'constant',
            'condition': 'delay={}'.format(self._time_orange_on_minutes * 60),
            'value': 1})
       else:
-        list_led.append(
+        self._list_led.append(
           {'type': 'constant',
            'condition': 'delay={}'.format(tuple2[0] - tuple1[0]),
            'value': 2})
 
-    return list_led, stimu_mecha_timestamps, \
-        stimu_elec_timestamps, is_active_timestamps, position_timestamps
+    return stimu_mecha_timestamps, stimu_elec_timestamps, \
+        is_active_timestamps, position_timestamps
 
   def _plot_protocol(self,
                      stimu_mecha_timestamps: list,
@@ -349,7 +367,7 @@ class Stimulation_protocol:
     plt.show()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
 
   new_prot = Stimulation_protocol()
 
