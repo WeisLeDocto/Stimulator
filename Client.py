@@ -555,7 +555,7 @@ class Client_loop:
     """
 
     self._client.subscribe(topic=self._topic_in, qos=2)
-    self._client.subscribe(topic=str(self._topic_data), qos=2)
+    self._client.subscribe(topic=str(self._topic_data), qos=0)
     self._client.subscribe(topic=str(self._topic_is_busy), qos=2)
     print("Subscribed")
     self.is_connected = True
