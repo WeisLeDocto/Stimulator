@@ -69,6 +69,7 @@ class Graphical_interface(QMainWindow):
     self._stopped = False
     self._protocol_list = []
     self._protocol_to_download = None
+    self._request_protocol_list = False
 
   def __call__(self) -> None:
     """Creates and displays the interface."""
@@ -363,6 +364,8 @@ class Graphical_interface(QMainWindow):
         self._display_status("Error ! Protocol not sent")
         return
 
+      self._request_protocol_list = True
+
     elif message == "Start protocol":
       items = self._protocol_list
       if not items:
@@ -440,6 +443,7 @@ class Graphical_interface(QMainWindow):
     while not self._loop.protocol_list_queue.empty():
       try:
         self._protocol_list = self._loop.protocol_list_queue.get_nowait()
+        self._request_protocol_list = False
       except Empty:
         pass
 
@@ -463,6 +467,11 @@ class Graphical_interface(QMainWindow):
         self._y_data.clear()
         self._display_busy(-1)
         self._protocol_list = []
+
+      # Asking for the protocol list again after an upload
+      if self._request_protocol_list:
+        self._send_server("Return protocol list")
+        return
 
       # Getting new messages from the server
       if not self._loop.answer_queue.empty():
