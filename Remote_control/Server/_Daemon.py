@@ -242,7 +242,8 @@ class Daemon_run:
         with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
           init_file.write("# coding: utf-8" + "\n")
           init_file.write("\n")
-          init_file.write("pass" + "\n")
+          init_file.write("from .Protocol_" + name + " import Led, Mecha, Elec"
+                          + "\n")
 
       with open(path + "/Protocols/Protocol_" + name + ".py", 'w') as \
            protocol_file:
