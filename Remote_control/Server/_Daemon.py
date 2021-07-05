@@ -253,6 +253,34 @@ class Daemon_run:
     except Empty:
       self._publish("Error ! No protocol received")
 
+  def _write_protocol(self):
+    from ..Protocols import Led, Mecha, Elec
+    path = dirname(abspath(__file__)).replace("/Remote_control/Server", "")
+    with open(path + "/Protocol.py", 'w') as executable_file:
+      executable_file.write('# coding: utf-8' + "\n")
+      executable_file.write("\n")
+
+      executable_file.write("Led = [" + "\n")
+      for dic in Led:
+        executable_file.write(str(dic) + "," + "\n")
+      executable_file.write("]" + "\n")
+
+      executable_file.write("Mecha = [" + "\n")
+      for dic in Mecha:
+        executable_file.write(str(dic) + "," + "\n")
+      executable_file.write("]" + "\n")
+
+      executable_file.write("Elec = [" + "\n")
+      for dic in Elec:
+        executable_file.write(str(dic) + "," + "\n")
+      executable_file.write("]" + "\n")
+
+      with open(path + "/Remote_control/Server/_Protocol_template.py", 'r') \
+           as template:
+        for line in template:
+          if "#" not in line:
+            executable_file.write(line)
+
   def _start_protocol(self) -> None:
     """Starts a new protocol, if no other protocol is currently running.
 
@@ -261,6 +289,7 @@ class Daemon_run:
     """
 
     if not self._is_protocol_active:
+      self._write_protocol()
       self._protocol = Popen(['python3', 'Protocol.py'])
       try:
         self._protocol.wait(5)
