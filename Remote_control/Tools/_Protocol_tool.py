@@ -139,7 +139,8 @@ class Stimulation_protocol:
               "from .Protocol_" + name + " import Led, Mecha, Elec"
               + "\n")
 
-        with open(path + "/Create_protocol.py", 'r') as file:
+        with open(path.replace("/Remote_control", "") +
+                  "/Create_protocol.py", 'r') as file:
           with open(path + "/Protocols/" + "Protocol_" + name +
                     ".py", 'w') as exported_file:
 

@@ -2,23 +2,11 @@
 
 # TODO:
 # Password for connecting to the broker
-# One or two servers ?
 # Limit display to a certain amount of information
-# Split the files and reorganize them
-# Make protocol transferable in Python
 # Test for protocol consistency
-# Possibility to choose among several protocols
-# Possibility to choose which protocol to write
-# Possibility to name the protocols
 # Possibility to download the protocols and see what they look like
-# Interface for building protocols ?
 
 # Multi-protocol management:
-# On connect, the client asks for the available protocols and the servers sends
-# The client stores the list of available protocols
-# When uploading a protocol, it actually sends a dict
-# The server writes it in a file according to the name
-# The client asks again for the list of available protocols
 # The client can ask the server to send the dict of a given protocol
 # The client can plot the locally available protocols from the interface
 
@@ -49,7 +37,8 @@ class Client_loop:
                topic_data: tuple = ('t', 'pos'),
                topic_is_busy: tuple = ('busy',),
                topic_protocol_out: str = 'Protocols_upload',
-               topic_protocol_in: str = 'Protocols_download') -> None:
+               topic_protocol_in: str = 'Protocols_download',
+               topic_protocol_list: str = 'Protocols_list') -> None:
     """Checks the arguments validity, sets the server callbacks.
 
     Args:
@@ -81,6 +70,8 @@ class Client_loop:
       raise TypeError("topic_protocol_in should be a string")
     if not isinstance(topic_protocol_out, str):
       raise TypeError("topic_protocol_out should be a string")
+    if not isinstance(topic_protocol_list, str):
+      raise TypeError("topic_protocol_list should be a string")
 
     # Setting the topics and the queues
     self._topic_in = topic_in
@@ -89,10 +80,12 @@ class Client_loop:
     self._topic_data = topic_data
     self._topic_protocol_in = topic_protocol_in
     self._topic_protocol_out = topic_protocol_out
+    self._topic_protocol_list = topic_protocol_list
     self.answer_queue = Queue()
     self.data_queue = Queue()
     self.is_busy_queue = Queue()
-    self._protocol_queue = Queue()
+    self.protocol_queue = Queue()
+    self.protocol_list_queue = Queue()
 
     # Setting the mqtt client
     self._client = mqtt.Client(str(time.time()))
@@ -153,7 +146,9 @@ class Client_loop:
         self.answer_queue.put_nowait(loads(message.payload))
         print("Got message" + " : " + loads(message.payload))
       elif message.topic == self._topic_protocol_in:
-        self._protocol_queue.put_nowait(loads(message.payload))
+        self.protocol_queue.put_nowait(loads(message.payload))
+      elif message.topic == self._topic_protocol_list:
+        self.protocol_list_queue.put_nowait(loads(message.payload))
     except UnpicklingError:
       # If the message hasn't been pickled before sending
       print("Warning ! Message raised UnpicklingError, ignoring it")
@@ -168,6 +163,7 @@ class Client_loop:
     self._client.subscribe(topic=str(self._topic_data), qos=0)
     self._client.subscribe(topic=str(self._topic_is_busy), qos=2)
     self._client.subscribe(topic=str(self._topic_protocol_in), qos=2)
+    self._client.subscribe(topic=str(self._topic_protocol_list), qos=2)
     print("Subscribed")
     self.is_connected = True
     self._client.loop_start()

@@ -315,9 +315,8 @@ class Graphical_interface(QMainWindow):
       except FileNotFoundError:
         self._display_status("Error ! No protocol found. Please create one")
         return
-      protocol_list.remove("__init__.py")
       items = [protocol.replace("Protocol_", "").replace(".py", "")
-               for protocol in protocol_list]
+               for protocol in protocol_list if protocol.startswith("Protocol")]
       item, ok = QInputDialog.getItem(self,
                                       "Protocol selection",
                                       "Please select the protocol to upload",
@@ -337,6 +336,21 @@ class Graphical_interface(QMainWindow):
       if self._loop.upload_protocol(protocol):
         self._display_status("Error ! Protocol not sent")
         return
+
+    elif message == "Start protocol":
+      items = self._protocol_list
+      if not items:
+        self._display_status("Error ! No protocol to start. Please upload one.")
+        return
+      item, ok = QInputDialog.getItem(self,
+                                      "Protocol selection",
+                                      "Please select the protocol to run",
+                                      items,
+                                      0,
+                                      False)
+      if not ok:
+        return
+      message += " " + item
 
     if not self._loop.publish(message):
       self._display_status("Command sent successfully, waiting for answer")
@@ -376,6 +390,13 @@ class Graphical_interface(QMainWindow):
       if busy is not None and busy != self._busy:
         self._busy = busy
         self._display_busy(busy)
+
+    # Receiving the protocol list
+    while not self._loop.protocol_list_queue.empty():
+      try:
+        self._protocol_list = self._loop.protocol_list_queue.get_nowait()
+      except Empty:
+        self._protocol_list = []
 
     if not self._waiting_for_answer:
       # Checking if disconnected
@@ -444,6 +465,9 @@ class Graphical_interface(QMainWindow):
     self._connection_status_display.setText(self._loop.connect_to_broker())
     self._display_if_connected(self._loop.is_connected)
     self._disable_if_connected(self._loop.is_connected)
+
+    if self._loop.is_connected:
+      self._send_server("Return protocol list")
 
   def _start_thread(self) -> None:
     """Starts the :meth:`_gui_loop` in a thread, so that the update of the

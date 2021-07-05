@@ -7,7 +7,7 @@ from pickle import loads, dumps, UnpicklingError
 import time
 from subprocess import Popen, TimeoutExpired
 from os.path import abspath, dirname, exists
-from os import mkdir
+from os import mkdir, listdir
 from signal import SIGINT
 
 
@@ -30,7 +30,8 @@ class Daemon_run:
                topic_in: str = 'Remote_control',
                topic_out: str = 'Server_status',
                topic_protocol_in: str = 'Protocols_upload',
-               topic_protocol_out: str = 'Protocols_download') -> None:
+               topic_protocol_out: str = 'Protocols_download',
+               topic_protocol_list: str = 'Protocols_list') -> None:
     """Checks the arguments validity, starts the broker and connects to it.
 
     Args:
@@ -40,6 +41,8 @@ class Daemon_run:
       topic_out: The topic for sending messages to the clients.
       topic_protocol_in: The topic for receiving protocols from the clients.
       topic_protocol_out: The topic for sending protocols to the clients.
+      topic_protocol_list: The topic for sending the list of available
+        protocols.
     """
 
     if not isinstance(port, int):
@@ -52,12 +55,15 @@ class Daemon_run:
       raise TypeError("topic_protocol_in should be a string")
     if not isinstance(topic_protocol_out, str):
       raise TypeError("topic_protocol_out should be a string")
+    if not isinstance(topic_protocol_list, str):
+      raise TypeError("topic_protocol_list should be a string")
 
     # Setting the topics and the queue
     self._topic_in = topic_in
     self._topic_out = topic_out
     self._topic_protocol_in = topic_protocol_in
     self._topic_protocol_out = topic_protocol_out
+    self._topic_protocol_list = topic_protocol_list
     self._message_queue = Queue()
     self._protocol_queue = Queue()
 
@@ -190,7 +196,11 @@ class Daemon_run:
         except Empty:
           message = None
 
-        if message == "Print status":
+        if message == "Return protocol list":
+          print("Return protocol list")
+          self._send_protocol_list()
+
+        elif message == "Print status":
           print("Print status")
           self._protocol_status()
 
@@ -198,9 +208,9 @@ class Daemon_run:
           print("Save protocol")
           self._save_protocol(message.replace("Upload protocol ", ""))
 
-        elif message == "Start protocol":
+        elif "Start protocol" in message:
           print("Start protocol")
-          self._start_protocol()
+          self._start_protocol(message.replace("Start protocol ", ""))
 
         elif message == "Stop protocol":
           print("Stop protocol")
@@ -231,6 +241,21 @@ class Daemon_run:
     else:
       self._publish("No protocol started yet")
 
+  def _send_protocol_list(self) -> None:
+    try:
+      path = dirname(abspath(__file__))
+      path = path.replace("/Server", "")
+      protocol_list = listdir(path + "/Protocols/")
+      protocols = [protocol.replace("Protocol_", "").replace(".py", "")
+                   for protocol in protocol_list if
+                   protocol.startswith("Protocol")]
+    except FileNotFoundError:
+      protocols = []
+    self._client.publish(topic=self._topic_protocol_list,
+                         payload=dumps(protocols),
+                         qos=2)
+    self._publish("Received list of protocols")
+
   def _save_protocol(self, name: str) -> None:
     try:
       protocol = self._protocol_queue.get(timeout=5)
@@ -253,7 +278,17 @@ class Daemon_run:
     except Empty:
       self._publish("Error ! No protocol received")
 
-  def _write_protocol(self):
+  @staticmethod
+  def _choose_protocol(protocol: str) -> None:
+    path = dirname(abspath(__file__)).replace("/Server", "")
+    with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
+      init_file.write("# coding: utf-8" + "\n")
+      init_file.write("\n")
+      init_file.write("from .Protocol_" + protocol + " import Led, Mecha, Elec"
+                      + "\n")
+
+  @ staticmethod
+  def _write_protocol():
     from ..Protocols import Led, Mecha, Elec
     path = dirname(abspath(__file__)).replace("/Remote_control/Server", "")
     with open(path + "/Protocol.py", 'w') as executable_file:
@@ -281,7 +316,7 @@ class Daemon_run:
           if "#" not in line:
             executable_file.write(line)
 
-  def _start_protocol(self) -> None:
+  def _start_protocol(self, protocol: str) -> None:
     """Starts a new protocol, if no other protocol is currently running.
 
     Also checks after a few seconds if the protocol indeed started or if it
@@ -289,6 +324,7 @@ class Daemon_run:
     """
 
     if not self._is_protocol_active:
+      self._choose_protocol(protocol)
       self._write_protocol()
       self._protocol = Popen(['python3', 'Protocol.py'])
       try:

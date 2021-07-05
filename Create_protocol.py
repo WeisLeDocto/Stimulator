@@ -45,4 +45,4 @@ if __name__ == '__main__':
                                       rest_between_sets_minutes=5 * 60,
                                       number_of_sets=4 * 8)
 
-  new_prot.save_protocol("Continuous_stretching")
+  new_prot.save_protocol("2")
