@@ -28,7 +28,8 @@ class Daemon_run:
                port: int,
                address: str = 'localhost',
                topic_in: str = 'Remote_control',
-               topic_out: str = 'Server_status') -> None:
+               topic_out: str = 'Server_status',
+               topic_protocol: str = 'Protocols') -> None:
     """Checks the arguments validity, starts the broker and connects to it.
 
     Args:
@@ -44,11 +45,15 @@ class Daemon_run:
       raise TypeError("topic_in should be a string")
     if not isinstance(topic_out, str):
       raise TypeError("topic_out should be a string")
+    if not isinstance(topic_protocol, str):
+      raise TypeError("topic_protocol should be a string")
 
     # Setting the topics and the queue
     self._topic_in = topic_in
     self._topic_out = topic_out
-    self._queue = Queue()
+    self._topic_protocol = topic_protocol
+    self._message_queue = Queue()
+    self._protocol_queue = Queue()
 
     # Setting the mqtt client
     self._client = mqtt.Client(str(time.time()))
@@ -127,7 +132,10 @@ class Daemon_run:
     """
 
     try:
-      self._queue.put_nowait(loads(message.payload))
+      if message.topic == self._topic_in:
+        self._message_queue.put_nowait(loads(message.payload))
+      elif message.topic == self._topic_protocol:
+        self._protocol_queue.put_nowait(loads(message.payload))
     except UnpicklingError:
       self._publish("Warning ! Message raised UnpicklingError, ignoring it")
     print("Got message")
@@ -139,6 +147,7 @@ class Daemon_run:
     """
 
     self._client.subscribe(topic=self._topic_in, qos=2)
+    self._client.subscribe(topic=self._topic_protocol, qos=2)
     print("Subscribed")
     self._client.loop_start()
 
@@ -169,15 +178,19 @@ class Daemon_run:
           self._last_return_code = self._protocol.poll()
 
       # Getting the command message and executing the associated action
-      if not self._queue.empty():
+      if not self._message_queue.empty():
         try:
-          message = self._queue.get_nowait()
+          message = self._message_queue.get_nowait()
         except Empty:
           message = None
 
         if message == "Print status":
           print("Print status")
           self._protocol_status()
+
+        elif "Upload protocol" in message:
+          print("Save protocol")
+          self._save_protocol(message[16:])
 
         elif message == "Start protocol":
           print("Start protocol")
@@ -211,6 +224,16 @@ class Daemon_run:
       self._publish("Protocol terminated with an error")
     else:
       self._publish("No protocol started yet")
+
+  def _save_protocol(self, name: str) -> None:
+    try:
+      protocol = self._protocol_queue.get(timeout=5)
+      with open(dirname(abspath(__file__)) + "/" + name + ".py", 'w') as \
+           protocol_file:
+        for line in protocol:
+          protocol_file.write(line)
+    except Empty:
+      self._publish("Error ! No protocol received")
 
   def _start_protocol(self) -> None:
     """Starts a new protocol, if no other protocol is currently running.
