@@ -1,8 +1,5 @@
 # coding: utf-8
 
-# TODO:
-# Password for connecting to the broker
-
 import time
 import paho.mqtt.client as mqtt
 from queue import Queue
