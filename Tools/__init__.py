@@ -1,3 +1,3 @@
 # coding: utf-8
 
-from .Protocol_tool import Stimulation_protocol
+from ._Protocol_tool import Stimulation_protocol
