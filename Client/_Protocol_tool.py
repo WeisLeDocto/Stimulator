@@ -131,11 +131,6 @@ class Stimulation_protocol:
 
         if not os.path.exists(path + "/Protocols/"):
           os.mkdir(path + "/Protocols/")
-          with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
-            init_file.write("# coding: utf-8" + "\n")
-            init_file.write("\n")
-            init_file.write("from .Protocol_" + name +
-                            " import Led, Mecha, Elec" + "\n")
 
         with open(path + "/Create_protocol.py", 'r') as file:
           with open(path + "/Protocols/" + "Protocol_" + name + ".py", 'w') \
