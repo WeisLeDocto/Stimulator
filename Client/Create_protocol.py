@@ -30,7 +30,7 @@ if __name__ == '__main__':
   # stimulation
   for n in range(2 * 24 * 8):
     new_prot.add_cyclic_stretching(resting_position_mm=2,
-                                   stretched_position_mm=2 + 3 * (n + 1) /
+                                   stretched_position_mm=2 + 2 * (n + 1) /
                                    (2 * 24 * 8),
                                    number_of_cycles=5,
                                    number_of_reps=3,
@@ -45,4 +45,4 @@ if __name__ == '__main__':
                                       rest_between_sets_minutes=5 * 60,
                                       number_of_sets=4 * 8)
 
-  new_prot.save_protocol("b")
+  new_prot.save_protocol("Continuous_stretching")
