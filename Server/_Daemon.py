@@ -6,7 +6,8 @@ from queue import Queue, Empty
 from pickle import loads, dumps, UnpicklingError
 import time
 from subprocess import Popen, TimeoutExpired
-from os.path import abspath, dirname
+from os.path import abspath, dirname, exists
+from os import mkdir
 from signal import SIGINT
 
 
@@ -28,7 +29,8 @@ class Daemon_run:
                address: str = 'localhost',
                topic_in: str = 'Remote_control',
                topic_out: str = 'Server_status',
-               topic_protocol: str = 'Protocols') -> None:
+               topic_protocol_in: str = 'Protocols_upload',
+               topic_protocol_out: str = 'Protocols_download') -> None:
     """Checks the arguments validity, starts the broker and connects to it.
 
     Args:
@@ -36,6 +38,8 @@ class Daemon_run:
       address: The network address of the broker.
       topic_in: The topic for receiving commands from clients.
       topic_out: The topic for sending messages to the clients.
+      topic_protocol_in: The topic for receiving protocols from the clients.
+      topic_protocol_out: The topic for sending protocols to the clients.
     """
 
     if not isinstance(port, int):
@@ -44,13 +48,16 @@ class Daemon_run:
       raise TypeError("topic_in should be a string")
     if not isinstance(topic_out, str):
       raise TypeError("topic_out should be a string")
-    if not isinstance(topic_protocol, str):
-      raise TypeError("topic_protocol should be a string")
+    if not isinstance(topic_protocol_in, str):
+      raise TypeError("topic_protocol_in should be a string")
+    if not isinstance(topic_protocol_out, str):
+      raise TypeError("topic_protocol_out should be a string")
 
     # Setting the topics and the queue
     self._topic_in = topic_in
     self._topic_out = topic_out
-    self._topic_protocol = topic_protocol
+    self._topic_protocol_in = topic_protocol_in
+    self._topic_protocol_out = topic_protocol_out
     self._message_queue = Queue()
     self._protocol_queue = Queue()
 
@@ -133,7 +140,7 @@ class Daemon_run:
     try:
       if message.topic == self._topic_in:
         self._message_queue.put_nowait(loads(message.payload))
-      elif message.topic == self._topic_protocol:
+      elif message.topic == self._topic_protocol_in:
         self._protocol_queue.put_nowait(loads(message.payload))
     except UnpicklingError:
       self._publish("Warning ! Message raised UnpicklingError, ignoring it")
@@ -146,7 +153,7 @@ class Daemon_run:
     """
 
     self._client.subscribe(topic=self._topic_in, qos=2)
-    self._client.subscribe(topic=self._topic_protocol, qos=2)
+    self._client.subscribe(topic=self._topic_protocol_in, qos=2)
     print("Subscribed")
     self._client.loop_start()
 
@@ -189,7 +196,7 @@ class Daemon_run:
 
         elif "Upload protocol" in message:
           print("Save protocol")
-          self._save_protocol(message[16:])
+          self._save_protocol(message.replace("Upload protocol ", ""))
 
         elif message == "Start protocol":
           print("Start protocol")
@@ -227,8 +234,16 @@ class Daemon_run:
   def _save_protocol(self, name: str) -> None:
     try:
       protocol = self._protocol_queue.get(timeout=5)
-      with open(dirname(abspath(__file__)) + "/" + name + ".py", 'w') as \
-           protocol_file:
+
+      path = dirname(abspath(__file__))
+      if not exists(path + "/Protocols/"):
+        mkdir(path + "/Protocols/")
+        with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
+          init_file.write("# coding: utf-8" + "\n")
+          init_file.write("\n")
+          init_file.write("pass" + "\n")
+
+      with open(path + "/Protocols/" + name + ".py", 'w') as protocol_file:
         for line in protocol:
           protocol_file.write(line)
       self._publish("Protocol successfully uploaded")

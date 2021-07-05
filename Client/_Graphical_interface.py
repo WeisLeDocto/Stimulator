@@ -314,6 +314,7 @@ class Graphical_interface(QMainWindow):
       except FileNotFoundError:
         self._display_status("Error ! No protocol found. Please create one")
         return
+      protocol_list.remove("__init__.py")
       items = [protocol.replace("Protocol_", "").replace(".py", "")
                for protocol in protocol_list]
       item, ok = QInputDialog.getItem(self,
@@ -324,7 +325,17 @@ class Graphical_interface(QMainWindow):
                                       False)
       if not ok:
         return
-      message += [" " + item]
+      message += " " + item
+
+      protocol = []
+      with open(os.path.dirname(os.path.abspath(__file__))
+                + "/Protocols/Protocol_" + item + ".py", 'r') as protocol_file:
+        for line in protocol_file:
+          protocol.append(line)
+
+      if self._loop.upload_protocol(protocol):
+        self._display_status("Error ! Protocol not sent")
+        return
 
     if not self._loop.publish(message):
       self._display_status("Command sent successfully, waiting for answer")

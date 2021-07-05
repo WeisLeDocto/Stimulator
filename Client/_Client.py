@@ -47,7 +47,9 @@ class Client_loop:
                topic_out: str = 'Remote_control',
                topic_in: str = 'Server_status',
                topic_data: tuple = ('t', 'pos'),
-               topic_is_busy: tuple = ('busy',)) -> None:
+               topic_is_busy: tuple = ('busy',),
+               topic_protocol_out: str = 'Protocols_upload',
+               topic_protocol_in: str = 'Protocols_download') -> None:
     """Checks the arguments validity, sets the server callbacks.
 
     Args:
@@ -57,6 +59,8 @@ class Client_loop:
       topic_in: The topic for receiving messages from the server.
       topic_data: The topic for receiving data from the server.
       topic_is_busy: The topic for receiving the business status of the server.
+      topic_protocol_out: The topic for uploading protocols to the server.
+      topic_protocol_in: The topic for downloading protocols from the server.
     """
 
     if not isinstance(port, int):
@@ -73,15 +77,22 @@ class Client_loop:
       raise TypeError("topic_data should be a tuple")
     if not isinstance(topic_is_busy, tuple):
       raise TypeError("topic_is_busy should be a tuple")
+    if not isinstance(topic_protocol_in, str):
+      raise TypeError("topic_protocol_in should be a string")
+    if not isinstance(topic_protocol_out, str):
+      raise TypeError("topic_protocol_out should be a string")
 
     # Setting the topics and the queues
     self._topic_in = topic_in
     self._topic_out = topic_out
     self._topic_is_busy = topic_is_busy
     self._topic_data = topic_data
+    self._topic_protocol_in = topic_protocol_in
+    self._topic_protocol_out = topic_protocol_out
     self.answer_queue = Queue()
     self.data_queue = Queue()
     self.is_busy_queue = Queue()
+    self._protocol_queue = Queue()
 
     # Setting the mqtt client
     self._client = mqtt.Client(str(time.time()))
@@ -106,7 +117,7 @@ class Client_loop:
       self._client.loop_stop()
       self._client.disconnect()
 
-  def publish(self, message: str) -> None:
+  def publish(self, message: str) -> int:
     """Wrapper for sending commands to the server.
 
     Args:
@@ -115,6 +126,11 @@ class Client_loop:
 
     return self._client.publish(topic=self._topic_out,
                                 payload=dumps(message),
+                                qos=2)[0]
+
+  def upload_protocol(self, protocol: list) -> int:
+    return self._client.publish(topic=self._topic_protocol_out,
+                                payload=dumps(protocol),
                                 qos=2)[0]
 
   def _on_message(self, client, userdata, message) -> None:
@@ -133,8 +149,11 @@ class Client_loop:
         self.is_busy_queue.put_nowait(loads(message.payload))
     except ValueError:
       # If the message contains text
-      self.answer_queue.put_nowait(loads(message.payload))
-      print("Got message" + " : " + loads(message.payload))
+      if message.topic == self._topic_in:
+        self.answer_queue.put_nowait(loads(message.payload))
+        print("Got message" + " : " + loads(message.payload))
+      elif message.topic == self._topic_protocol_in:
+        self._protocol_queue.put_nowait(loads(message.payload))
     except UnpicklingError:
       # If the message hasn't been pickled before sending
       print("Warning ! Message raised UnpicklingError, ignoring it")
@@ -148,6 +167,7 @@ class Client_loop:
     self._client.subscribe(topic=self._topic_in, qos=2)
     self._client.subscribe(topic=str(self._topic_data), qos=0)
     self._client.subscribe(topic=str(self._topic_is_busy), qos=2)
+    self._client.subscribe(topic=str(self._topic_protocol_in), qos=2)
     print("Subscribed")
     self.is_connected = True
     self._client.loop_start()
