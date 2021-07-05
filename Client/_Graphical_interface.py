@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import os
 import time
 from queue import Empty
 
@@ -307,7 +308,14 @@ class Graphical_interface(QMainWindow):
         return
 
     elif message == "Upload protocol":
-      items = ['a', 'b']
+      try:
+        protocol_list = os.listdir(
+          os.path.dirname(os.path.abspath(__file__)) + "/Protocols/")
+      except FileNotFoundError:
+        self._display_status("Error ! No protocol found. Please create one")
+        return
+      items = [protocol.replace("Protocol_", "").replace(".py", "")
+               for protocol in protocol_list]
       item, ok = QInputDialog.getItem(self,
                                       "Protocol selection",
                                       "Please select the protocol to upload",
