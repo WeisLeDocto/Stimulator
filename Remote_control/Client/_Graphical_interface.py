@@ -309,8 +309,9 @@ class Graphical_interface(QMainWindow):
 
     elif message == "Upload protocol":
       try:
-        protocol_list = os.listdir(
-          os.path.dirname(os.path.abspath(__file__)) + "/Protocols/")
+        path = os.path.dirname(os.path.abspath(__file__))
+        path = path.replace("/Client", "")
+        protocol_list = os.listdir(path + "/Protocols/")
       except FileNotFoundError:
         self._display_status("Error ! No protocol found. Please create one")
         return
@@ -328,8 +329,8 @@ class Graphical_interface(QMainWindow):
       message += " " + item
 
       protocol = []
-      with open(os.path.dirname(os.path.abspath(__file__))
-                + "/Protocols/Protocol_" + item + ".py", 'r') as protocol_file:
+      with open(path + "/Protocols/Protocol_" + item + ".py", 'r') \
+           as protocol_file:
         for line in protocol_file:
           protocol.append(line)
 

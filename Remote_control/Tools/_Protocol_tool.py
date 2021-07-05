@@ -23,7 +23,7 @@ class Stimulation_protocol:
 
     self._py_file = ["# coding: utf-8" + "\n",
                      "\n",
-                     "from Tools import Stimulation_protocol" + "\n",
+                     "from ..Tools import Stimulation_protocol" + "\n",
                      "\n",
                      ]
 
@@ -130,16 +130,15 @@ class Stimulation_protocol:
         path = os.path.dirname(os.path.abspath(__file__))
         path = path.replace("/Tools", "")
 
-        if not os.path.exists(path + "/Client/Protocols/"):
-          os.mkdir(path + "/Client/Protocols/")
-          with open(path + "/Client/Protocols/" + "__init__.py", 'w') \
-               as init_file:
+        if not os.path.exists(path + "/Protocols/"):
+          os.mkdir(path + "/Protocols/")
+          with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
             init_file.write("# coding: utf-8" + "\n")
             init_file.write("\n")
             init_file.write("pass" + "\n")
 
         with open(path + "/Create_protocol.py", 'r') as file:
-          with open(path + "/Client/Protocols/" + "Protocol_" + name +
+          with open(path + "/Protocols/" + "Protocol_" + name +
                     ".py", 'w') as exported_file:
 
             for line in self._py_file:
@@ -149,11 +148,12 @@ class Stimulation_protocol:
             for line in file:
               if line.strip() == "if __name__ == '__main__':":
                 copy = True
+                continue
               if "save" in line.strip():
                 copy = False
               if copy:
-                exported_file.write(line)
-            exported_file.write("  Led, Mecha, Elec = new_prot.export()" + "\n")
+                exported_file.write(line[2:])
+            exported_file.write("Led, Mecha, Elec = new_prot.export()" + "\n")
 
         print("Protocol saved !")
         break

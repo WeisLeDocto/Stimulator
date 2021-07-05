@@ -129,5 +129,4 @@ dmypy.json
 .pyre/
 
 # Protocol files
-Client/Protocols/
-Server/Protocols/
+Remote_control/Protocols/

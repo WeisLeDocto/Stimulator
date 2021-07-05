@@ -1,7 +1,5 @@
 # coding: utf-8
 
-from os.path import abspath, dirname
-import daemon
 from Server import Daemon_run
 
 if __name__ == "__main__":

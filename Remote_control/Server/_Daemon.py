@@ -236,6 +236,7 @@ class Daemon_run:
       protocol = self._protocol_queue.get(timeout=5)
 
       path = dirname(abspath(__file__))
+      path = path.replace("/Server", "")
       if not exists(path + "/Protocols/"):
         mkdir(path + "/Protocols/")
         with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
