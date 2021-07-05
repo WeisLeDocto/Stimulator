@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import socket
-import daemon
 import paho.mqtt.client as mqtt
 from queue import Queue, Empty
 from pickle import loads, dumps, UnpicklingError
@@ -304,8 +303,3 @@ class Daemon_run:
         self._publish("Protocol terminated with an error")
         self._is_protocol_active = False
     return 0
-
-
-if __name__ == "__main__":
-  # with daemon.DaemonContext(working_directory=dirname(abspath(__file__))):
-  Daemon_run(1148)()
