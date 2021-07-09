@@ -37,6 +37,8 @@ class Client_loop:
       topic_is_busy: The topic for receiving the business status of the server.
       topic_protocol_out: The topic for uploading protocols to the server.
       topic_protocol_in: The topic for downloading protocols from the server.
+      topic_protocol_list: The topic for receiving list of available protocols
+        from the server.
     """
 
     if not isinstance(port, int):

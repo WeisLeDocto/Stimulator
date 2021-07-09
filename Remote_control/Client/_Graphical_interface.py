@@ -48,6 +48,7 @@ class Timer(QObject):
 
   def stop(self) -> None:
     """Sets the :attr:`_stop` flag to :obj:`False`."""
+
     self._stop = True
 
 
@@ -290,6 +291,14 @@ class Graphical_interface(QMainWindow):
 
   @staticmethod
   def _save_protocol(protocol: list, name: str) -> None:
+    """Saves a protocol received from the server in the Protocols/ directory.
+
+    Args:
+      protocol: A :obj:`list` of :obj:`str`, each element representing a line of
+        a `.py` document containing the protocol code.
+      name: The name of the protocol.
+    """
+
     path = os.path.dirname(os.path.abspath(__file__))
     path = path.replace("/Client", "")
     if not os.path.exists(path + "/Protocols/"):

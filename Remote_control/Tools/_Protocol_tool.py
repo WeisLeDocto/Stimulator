@@ -7,10 +7,23 @@ import os
 
 
 class Stimulation_protocol:
+  """Class implementing methods for building a stimulation protocol."""
+
   def __init__(self,
                full_step_per_mm=252,
                step_mode=128,
                time_orange_on_minutes: float = 10) -> None:
+    """Sets the instance attributes.
+
+    Args:
+      full_step_per_mm: Gain of the motor in step/mm when driving in full step
+        mode.
+      step_mode: The step mode to use for driving the motor.
+      time_orange_on_minutes: The orange light warns the user that a stimulation
+        will restart soon. How long before should the light switch from green to
+        orange ?
+    """
+
     self._full_step_per_mm = full_step_per_mm
     self._step_mode = step_mode
     self._time_orange_on_minutes = time_orange_on_minutes
@@ -32,10 +45,25 @@ class Stimulation_protocol:
                                 resting_time_ratio: float,
                                 consecutive_stretch_duration_hours: float,
                                 total_duration_hours: float) -> None:
+    """Adds a continuous stretching phase, during which the muscle is being
+    slowly stretched.
+
+    Increases the position step by step. So should only be used for really slow
+    paces.
+
+    Args:
+      travel_length_mm: The total distance the muscle should be stretched by.
+      resting_time_ratio: Ratio of the time spent resting over the total
+        duration.
+      consecutive_stretch_duration_hours: How long should the muscle be
+        stretched before a resting period starts ?
+      total_duration_hours: Total duration of the continuous stretching phase.
+    """
+
     # Calculating parameters
     delay_between_steps = total_duration_hours * 60 * 60 * (
         1 - resting_time_ratio) / self._full_step_per_mm / self._step_mode / \
-                          abs(travel_length_mm)
+        abs(travel_length_mm)
     step_length = 1 / self._full_step_per_mm / self._step_mode
     number_of_steps = int(abs(travel_length_mm) * self._step_mode *
                           self._full_step_per_mm)
@@ -63,7 +91,29 @@ class Stimulation_protocol:
                             time_to_reach_position_seconds: float,
                             number_of_sets: int,
                             rest_between_sets_minutes: float,
-                            rest_between_cycles_minutes: float) -> None:
+                            rest_between_reps_minutes: float) -> None:
+    """Adds a cyclic stretching phase, during which the muscle is being
+    stretched in a cyclic way.
+
+    The cyclic stretching is split in sets, separated by resting phases. Each
+    set counts several reps, also separated by resting phases. And each rep
+    consists in a given number of cycles, with no rest between cycles.
+
+    Args:
+      resting_position_mm: The position of the pin during resting phases.
+      stretched_position_mm: The target position of the pin when muscle is
+        stretched.
+      number_of_cycles: The number of cycles during a rep.
+      number_of_reps: The number of reps during a set.
+      time_to_reach_position_seconds: The delay between a command to go to
+        stretched position and a command to return to resting position during a
+        cycle. Depending on speed, the pin may not have time to reach the target
+        position and the actual stretched position is then less than expected.
+      number_of_sets: The number of sets.
+      rest_between_sets_minutes: The resting time between sets.
+      rest_between_reps_minutes: The resting time between cycles.
+    """
+
     for _ in range(number_of_sets):
       for i in range(number_of_reps):
         for _ in range(number_of_cycles):
@@ -75,7 +125,7 @@ class Stimulation_protocol:
                           is_active=True)
         if i != number_of_reps - 1:
           self._add_mecha(position=resting_position_mm,
-                          delay=rest_between_cycles_minutes * 60,
+                          delay=rest_between_reps_minutes * 60,
                           is_active=False)
       self._add_mecha(position=resting_position_mm,
                       delay=rest_between_sets_minutes * 60,
@@ -84,6 +134,13 @@ class Stimulation_protocol:
   def add_mechanical_rest(self,
                           rest_duration_hours: float,
                           resting_position_mm: float) -> None:
+    """Adds a mechanical resting phase.
+
+    Args:
+      rest_duration_hours: The resting phase duration.
+      resting_position_mm: The position to hold during the resting phase.
+    """
+
     self._add_mecha(position=resting_position_mm,
                     delay=rest_duration_hours * 60 * 60,
                     is_active=False)
@@ -94,6 +151,21 @@ class Stimulation_protocol:
                                  delay_between_pulses_seconds: float,
                                  rest_between_sets_minutes: float,
                                  number_of_sets: int) -> None:
+    """Adds an electrical stimulation phase, during which electrical pulses are
+    sent to the muscles.
+
+    The stimulation is split in sets, of given duration and separated by a
+    resting time. During a set, the muscle is continuously being stimulated.
+
+    Args:
+      pulse_duration_seconds: The duration of an pulse.
+      set_duration_minutes: The duration of a set.
+      delay_between_pulses_seconds: A pulse is sent once every this value
+        seconds.
+      rest_between_sets_minutes: The delay between two sets.
+      number_of_sets: The number of sets.
+    """
+
     pulses_per_set = round(set_duration_minutes * 60 /
                            delay_between_pulses_seconds)
     for _ in range(number_of_sets):
@@ -113,6 +185,13 @@ class Stimulation_protocol:
 
   def add_electrical_rest(self,
                           rest_duration_hours: float) -> None:
+    """Adds an electrical resting phase, during which no current flows in the
+    electrodes.
+
+    Args:
+      rest_duration_hours: The resting phase duration.
+    """
+
     self._elec_stimu.append(
       {'type': 'constant',
        'condition': 'delay={}'.format(rest_duration_hours * 60 * 60),
@@ -120,6 +199,15 @@ class Stimulation_protocol:
     self._elec_stimu_on.append((rest_duration_hours * 60 * 60, False))
 
   def save_protocol(self, name: str) -> None:
+    """saves the protocol as a `.py` file in the Protocols/ directory.
+
+    Before saving, displays the graphs summarizing the protocol and asks the
+    user for confirmation.
+
+    Args:
+      name: The name of the protocol to save.
+    """
+
     self._plot_protocol(*self._build_led_list())
 
     print("Do you want to save the current protocol ?")
@@ -167,6 +255,13 @@ class Stimulation_protocol:
         print("Please answer Yes or No !")
 
   def export(self) -> tuple:
+    """Generates the lists the stimulation program takes as inputs, and returns
+    them.
+
+    Returns:
+      The lists for driving the Crappy Generators.
+    """
+
     self._build_led_list()
     return self._list_led, self._mecha_stimu, self._elec_stimu
 
@@ -174,6 +269,16 @@ class Stimulation_protocol:
                  position: float,
                  delay: float,
                  is_active: bool) -> None:
+    """Wrapper for generating a :obj:`dict` containing all Crappy Generator
+    relevant information and adding it to the :obj:`list` of dictionaries.
+
+    Args:
+      position: The position to reach
+      delay: The delay for reaching/holding this position.
+      is_active: :obj:`True` if this command is part of a stimulation phase,
+        :obj:`False` if it is part of a resting phase.
+    """
+
     self._mecha_stimu.append(
       {'type': 'constant',
        'condition': 'delay={}'.format(delay),
@@ -182,6 +287,13 @@ class Stimulation_protocol:
     self._position.append((delay, position))
 
   def _build_led_list(self) -> tuple:
+    """Builds the three :obj:`list` of :obj:`dict` necessary for starting the
+    protocol, and returns them.
+
+    Returns:
+      The lists for driving the Crappy Generators.
+    """
+
     # Building lists of tuples
     # The first value is the timestamp, the second tells whether the stimulation
     # is on or off from this timestamp to the next one
@@ -303,6 +415,19 @@ class Stimulation_protocol:
                      stimu_elec_timestamps: list,
                      is_active_timestamps: list,
                      position_timestamps: list) -> None:
+    """
+
+    Args:
+      stimu_mecha_timestamps: The timestamps indicating when the mechanical
+        stimulation is active.
+      stimu_elec_timestamps: The timestamps indicating when the electrical
+        stimulation is active.
+      is_active_timestamps: The timestamps indicating when at least one of the
+        stimulation is active.
+      position_timestamps: The positions of the movable pin and their
+        timestamps.
+    """
+
     matplotlib.use('TkAgg')
     current_time = datetime.datetime.now()
 

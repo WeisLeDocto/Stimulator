@@ -32,12 +32,11 @@ if __name__ == '__main__':
     new_prot.add_cyclic_stretching(resting_position_mm=2,
                                    stretched_position_mm=2 + 2 * (n + 1) /
                                    (2 * 24 * 8),
-                                   number_of_cycles=5,
-                                   number_of_reps=3,
+                                   number_of_cycles=5, number_of_reps=3,
                                    time_to_reach_position_seconds=2,
                                    number_of_sets=1,
                                    rest_between_sets_minutes=28,
-                                   rest_between_cycles_minutes=0.5)
+                                   rest_between_reps_minutes=0.5)
 
   new_prot.add_electrical_stimulation(pulse_duration_seconds=0.01,
                                       delay_between_pulses_seconds=1,

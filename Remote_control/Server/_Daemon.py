@@ -21,7 +21,9 @@ class Daemon_run:
   """A class for managing the stimulation protocols.
 
   It allows to start and stop the protocols safely as a separate process. Can
-  also return the status of the protocol, and end itself.
+  also return the status of the protocol, receive uploaded protocols from the
+  clients, send downloaded protocols to the clients, and send the clients a list
+  of available protocols.
   """
 
   def __init__(self,
@@ -247,6 +249,8 @@ class Daemon_run:
       self._publish("No protocol started yet")
 
   def _send_protocol_list(self) -> None:
+    """Sends the clients the list of protocols in the Protocols/ folder"""
+
     try:
       path = dirname(abspath(__file__))
       path = path.replace("/Server", "")
@@ -262,6 +266,15 @@ class Daemon_run:
     self._publish("Received list of protocols")
 
   def _send_protocol(self, name: str) -> None:
+    """Sends the clients a protocol from the Protocols/ folder.
+
+    It is transferred as a :obj:`list`, each element being a :obj:`str` of a
+    line in the corresponding `.py`  file.
+
+    Args:
+      name: The name of the protocol to send.
+    """
+
     protocol = []
     path = dirname(abspath(__file__)).replace("/Server", "")
     with open(path + "/Protocols/Protocol_" + name + ".py", 'r') \
@@ -277,6 +290,17 @@ class Daemon_run:
       self._publish("Protocol successfully downloaded")
 
   def _save_protocol(self, name: str, p_word: str) -> None:
+    """Saves a protocol uploaded by a client in the Protocols/ folder.
+
+    The protocol is received as a :obj:`list` of :obj:`str`, representing each a
+    line o the `.py` document.
+
+    Args:
+      name: The name of the protocol to write.
+      p_word: A password the user has to provide in order to write to the
+        server.
+    """
+
     path = dirname(abspath(__file__)).replace("/Server", "")
     with open(path + "/password.txt", 'r') as password_file:
       password = password_file.read()
@@ -305,6 +329,15 @@ class Daemon_run:
 
   @staticmethod
   def _choose_protocol(protocol: str) -> None:
+    """Chooses the right protocol to start.
+
+    Overwrites the ``__init__.py`` file in the Protocols/ folder so that the
+    generator lists are imported from the right files.
+
+    Args:
+      protocol: The name of the protocol to choose.
+    """
+
     path = dirname(abspath(__file__)).replace("/Server", "")
     with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
       init_file.write("# coding: utf-8" + "\n")
@@ -314,6 +347,9 @@ class Daemon_run:
 
   @ staticmethod
   def _write_protocol():
+    """Writes the ``Protocol.py`` file using the generator lists and the
+    ``_Protocol_template.py`` file."""
+
     from ..Protocols import Led, Mecha, Elec
     path = dirname(abspath(__file__)).replace("/Remote_control/Server", "")
     with open(path + "/Protocol.py", 'w') as executable_file:
@@ -344,8 +380,12 @@ class Daemon_run:
   def _start_protocol(self, protocol: str) -> None:
     """Starts a new protocol, if no other protocol is currently running.
 
-    Also checks after a few seconds if the protocol indeed started or if it
-    just crashed.
+    first writes a few files in  order for the right protocol to run. Also
+    checks after a few seconds if the protocol indeed started or if it just
+    crashed.
+
+    Args:
+      protocol: The protocol to start.
     """
 
     if not self._is_protocol_active:
