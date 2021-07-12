@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 
 
-class Stimulation_protocol:
+class Protocol_phases:
   """Class implementing methods for building a stimulation protocol."""
 
   def __init__(self,
@@ -36,7 +36,7 @@ class Stimulation_protocol:
 
     self._py_file = ["# coding: utf-8" + "\n",
                      "\n",
-                     "from ..Tools import Stimulation_protocol" + "\n",
+                     "from ..Tools import Protocol_phases" + "\n",
                      "\n",
                      ]
 

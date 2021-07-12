@@ -1,10 +1,10 @@
 # coding: utf-8
 
-from Remote_control import Stimulation_protocol
+from Remote_control import Protocol_phases
 
 if __name__ == '__main__':
 
-  new_prot = Stimulation_protocol()
+  new_prot = Protocol_phases()
 
   # First 24 hours resting phase
   new_prot.add_mechanical_rest(resting_position_mm=0,
