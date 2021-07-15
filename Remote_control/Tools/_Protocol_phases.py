@@ -1,9 +1,47 @@
 # coding: utf-8
 
 import datetime
-import matplotlib
 import matplotlib.pyplot as plt
-import os
+
+
+cyclic_stretching_steady = {'rest_position_mm': float,
+                            'stretched_position_mm': float,
+                            'number_of_cycles': int,
+                            'number_of_reps': int,
+                            'time_to_reach_position_seconds': float,
+                            'number_of_sets': int,
+                            'rest_between_sets_minutes': float,
+                            'rest_between_reps_minutes': float}
+
+cyclic_stretching_progressive = {'rest_position_mm': float,
+                                 'first_stretched_position_mm': float,
+                                 'last_stretched_position_mm': float,
+                                 'number_of_cycles': int,
+                                 'number_of_reps': int,
+                                 'time_to_reach_position_seconds': float,
+                                 'number_of_sets': int,
+                                 'rest_between_sets_minutes': float,
+                                 'rest_between_reps_minutes': float}
+
+mechanical_rest = {'rest_duration_hours': float,
+                   'rest_position_mm': float}
+
+electrical_rest = {'rest_duration_hours': float}
+
+electrical_stimulation = {'pulse_duration_seconds': float,
+                          'set_duration_minutes': float,
+                          'delay_between_pulses_seconds': float,
+                          'rest_between_sets_minutes': float,
+                          'number_of_sets': int}
+
+
+Protocol_parameters = {"Add cyclic stretching (steady)":
+                       cyclic_stretching_steady,
+                       "Add cyclic stretching (progressive)":
+                       cyclic_stretching_progressive,
+                       "Add mechanical rest": mechanical_rest,
+                       "Add electrical rest": electrical_rest,
+                       "Add electrical stimulation": electrical_stimulation}
 
 
 class Protocol_phases:
@@ -34,11 +72,13 @@ class Protocol_phases:
     self._elec_stimu_on = [(0., False)]
     self._position = [(0., 0.)]
 
-    self._py_file = ["# coding: utf-8" + "\n",
-                     "\n",
-                     "from ..Tools import Protocol_phases" + "\n",
-                     "\n",
-                     ]
+    self.py_file = ["# coding: utf-8" + "\n",
+                    "\n",
+                    "from ..Tools import Protocol_phases" + "\n",
+                    "\n",
+                    "new_prot = Protocol_phases()" + "\n",
+                    "\n"
+                    ]
 
   def add_continuous_stretching(self,
                                 travel_length_mm: float,
@@ -83,15 +123,21 @@ class Protocol_phases:
                                     60 * 60),
                         is_active=False)
 
-  def add_cyclic_stretching(self,
-                            resting_position_mm: float,
-                            stretched_position_mm: float,
-                            number_of_cycles: int,
-                            number_of_reps: int,
-                            time_to_reach_position_seconds: float,
-                            number_of_sets: int,
-                            rest_between_sets_minutes: float,
-                            rest_between_reps_minutes: float) -> None:
+    self.py_file.extend("new_prot.add_continuous_stretching({}, {}, {}, {})".
+                        format(travel_length_mm, resting_time_ratio,
+                               consecutive_stretch_duration_hours,
+                               total_duration_hours) + "\n")
+    self.py_file.extend("\n")
+
+  def add_cyclic_stretching_steady(self,
+                                   rest_position_mm: float,
+                                   stretched_position_mm: float,
+                                   number_of_cycles: int,
+                                   number_of_reps: int,
+                                   time_to_reach_position_seconds: float,
+                                   number_of_sets: int,
+                                   rest_between_sets_minutes: float,
+                                   rest_between_reps_minutes: float) -> None:
     """Adds a cyclic stretching phase, during which the muscle is being
     stretched in a cyclic way.
 
@@ -100,7 +146,7 @@ class Protocol_phases:
     consists in a given number of cycles, with no rest between cycles.
 
     Args:
-      resting_position_mm: The position of the pin during resting phases.
+      rest_position_mm: The position of the pin during resting phases.
       stretched_position_mm: The target position of the pin when muscle is
         stretched.
       number_of_cycles: The number of cycles during a rep.
@@ -120,30 +166,112 @@ class Protocol_phases:
           self._add_mecha(position=stretched_position_mm,
                           delay=time_to_reach_position_seconds,
                           is_active=True)
-          self._add_mecha(position=resting_position_mm,
+          self._add_mecha(position=rest_position_mm,
                           delay=time_to_reach_position_seconds,
                           is_active=True)
         if i != number_of_reps - 1:
-          self._add_mecha(position=resting_position_mm,
+          self._add_mecha(position=rest_position_mm,
                           delay=rest_between_reps_minutes * 60,
                           is_active=False)
-      self._add_mecha(position=resting_position_mm,
+      self._add_mecha(position=rest_position_mm,
                       delay=rest_between_sets_minutes * 60,
                       is_active=False)
 
+    self.py_file.extend("new_prot.add_cyclic_stretching_steady({}, {}, {}, {}, "
+                        "{}, {}, {}, {})".
+                        format(rest_position_mm, stretched_position_mm,
+                               number_of_cycles, number_of_reps,
+                               time_to_reach_position_seconds, number_of_sets,
+                               rest_between_sets_minutes,
+                               rest_between_reps_minutes) + "\n")
+    self.py_file.extend("\n")
+
+  def add_cyclic_stretching_progressive(self,
+                                        rest_position_mm: float,
+                                        first_stretched_position_mm: float,
+                                        last_stretched_position_mm: float,
+                                        number_of_cycles: int,
+                                        number_of_reps: int,
+                                        time_to_reach_position_seconds: float,
+                                        number_of_sets: int,
+                                        rest_between_sets_minutes: float,
+                                        rest_between_reps_minutes: float) -> \
+          None:
+    """Adds a cyclic stretching phase, during which the muscle is being
+    stretched in a cyclic way.
+
+    The distance over which the movable pin is moving changes in a linear
+    fashion from one set to the next, from the first value to the last. All the
+    cycles of a given set move the pin by the same distance.
+
+    The cyclic stretching is split in sets, separated by resting phases. Each
+    set counts several reps, also separated by resting phases. And each rep
+    consists in a given number of cycles, with no rest between cycles.
+
+    Args:
+      rest_position_mm: The position of the pin during resting phases.
+      first_stretched_position_mm: The target position of the pin when muscle is
+        stretched, at the beginning of the stretching cycle.
+      last_stretched_position_mm: The target position of the pin when muscle is
+        stretched, at the end of the stretching cycle.
+      number_of_cycles: The number of cycles during a rep.
+      number_of_reps: The number of reps during a set.
+      time_to_reach_position_seconds: The delay between a command to go to
+        stretched position and a command to return to resting position during a
+        cycle. Depending on speed, the pin may not have time to reach the target
+        position and the actual stretched position is then less than expected.
+      number_of_sets: The number of sets.
+      rest_between_sets_minutes: The resting time between sets.
+      rest_between_reps_minutes: The resting time between cycles.
+    """
+
+    for j in range(number_of_sets):
+      position = first_stretched_position_mm + j * \
+                 (last_stretched_position_mm - first_stretched_position_mm) / \
+                 (number_of_sets - 1)
+      for i in range(number_of_reps):
+        for _ in range(number_of_cycles):
+          self._add_mecha(position=position,
+                          delay=time_to_reach_position_seconds,
+                          is_active=True)
+          self._add_mecha(position=rest_position_mm,
+                          delay=time_to_reach_position_seconds,
+                          is_active=True)
+        if i != number_of_reps - 1:
+          self._add_mecha(position=rest_position_mm,
+                          delay=rest_between_reps_minutes * 60,
+                          is_active=False)
+      self._add_mecha(position=rest_position_mm,
+                      delay=rest_between_sets_minutes * 60,
+                      is_active=False)
+
+    self.py_file.extend("new_prot.add_cyclic_stretching_progressive({}, {}, {},"
+                        " {}, {}, {}, {}, {}, {})".
+                        format(rest_position_mm, first_stretched_position_mm,
+                               last_stretched_position_mm,
+                               number_of_cycles, number_of_reps,
+                               time_to_reach_position_seconds, number_of_sets,
+                               rest_between_sets_minutes,
+                               rest_between_reps_minutes) + "\n")
+    self.py_file.extend("\n")
+
   def add_mechanical_rest(self,
                           rest_duration_hours: float,
-                          resting_position_mm: float) -> None:
+                          rest_position_mm: float) -> None:
     """Adds a mechanical resting phase.
 
     Args:
       rest_duration_hours: The resting phase duration.
-      resting_position_mm: The position to hold during the resting phase.
+      rest_position_mm: The position to hold during the resting phase.
     """
 
-    self._add_mecha(position=resting_position_mm,
+    self._add_mecha(position=rest_position_mm,
                     delay=rest_duration_hours * 60 * 60,
                     is_active=False)
+
+    self.py_file.extend("new_prot.add_mechanical_rest({}, {})".
+                        format(rest_duration_hours, rest_position_mm) + "\n")
+    self.py_file.extend("\n")
 
   def add_electrical_stimulation(self,
                                  pulse_duration_seconds: float,
@@ -183,6 +311,14 @@ class Protocol_phases:
          'value': 1})
       self._elec_stimu_on.append((rest_between_sets_minutes * 60, False))
 
+    self.py_file.extend("new_prot.add_electrical_stimulation({}, {}, {}, {}, "
+                        "{})".format(pulse_duration_seconds,
+                                     set_duration_minutes,
+                                     delay_between_pulses_seconds,
+                                     rest_between_sets_minutes,
+                                     number_of_sets) + "\n")
+    self.py_file.extend("\n")
+
   def add_electrical_rest(self,
                           rest_duration_hours: float) -> None:
     """Adds an electrical resting phase, during which no current flows in the
@@ -198,61 +334,26 @@ class Protocol_phases:
        'value': 1})
     self._elec_stimu_on.append((rest_duration_hours * 60 * 60, False))
 
-  def save_protocol(self, name: str) -> None:
-    """saves the protocol as a `.py` file in the Protocols/ directory.
+    self.py_file.extend("new_prot.add_electrical_rest({})".
+                        format(rest_duration_hours) + "\n")
+    self.py_file.extend("\n")
 
-    Before saving, displays the graphs summarizing the protocol and asks the
-    user for confirmation.
+  def reset_protocol(self) -> None:
+    """Resets the lists containing the protocol details."""
 
-    Args:
-      name: The name of the protocol to save.
-    """
+    self._mecha_stimu = []
+    self._elec_stimu = []
+    self._mecha_stimu_on = [(0., False)]
+    self._elec_stimu_on = [(0., False)]
+    self._position = [(0., 0.)]
 
-    self._plot_protocol(*self._build_led_list())
-
-    print("Do you want to save the current protocol ?")
-    while True:
-      answer = input("Yes / No :   ")
-      if answer in ["Yes", "yes"]:
-
-        path = os.path.dirname(os.path.abspath(__file__))
-        path = path.replace("/Tools", "")
-
-        if not os.path.exists(path + "/Protocols/"):
-          os.mkdir(path + "/Protocols/")
-          with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
-            init_file.write("# coding: utf-8" + "\n")
-            init_file.write("\n")
-            init_file.write(
-              "from .Protocol_" + name + " import Led, Mecha, Elec"
-              + "\n")
-
-        with open(path.replace("/Remote_control", "") +
-                  "/Create_protocol.py", 'r') as file:
-          with open(path + "/Protocols/" + "Protocol_" + name +
-                    ".py", 'w') as exported_file:
-
-            for line in self._py_file:
-              exported_file.write(line)
-
-            copy = False
-            for line in file:
-              if line.strip() == "if __name__ == '__main__':":
-                copy = True
-                continue
-              if "save" in line.strip():
-                copy = False
-              if copy:
-                exported_file.write(line[2:])
-            exported_file.write("Led, Mecha, Elec = new_prot.export()" + "\n")
-
-        print("Protocol saved !")
-        break
-      elif answer in ["No", "no"]:
-        print("Protocol not saved")
-        break
-      else:
-        print("Please answer Yes or No !")
+    self.py_file = ["# coding: utf-8" + "\n",
+                    "\n",
+                    "from ..Tools import Protocol_phases" + "\n",
+                    "\n",
+                    "new_prot = Protocol_phases()" + "\n",
+                    "\n"
+                    ]
 
   def export(self) -> tuple:
     """Generates the lists the stimulation program takes as inputs, and returns
@@ -415,25 +516,14 @@ class Protocol_phases:
     return stimu_mecha_timestamps, stimu_elec_timestamps, \
         is_active_timestamps, position_timestamps
 
-  def _plot_protocol(self,
-                     stimu_mecha_timestamps: list,
-                     stimu_elec_timestamps: list,
-                     is_active_timestamps: list,
-                     position_timestamps: list) -> None:
-    """
+  def plot_protocol(self) -> None:
+    """Plots the movable pin position, the moments when the electrical and
+    mechanical stimulation are on, and the moments when either of them is on."""
 
-    Args:
-      stimu_mecha_timestamps: The timestamps indicating when the mechanical
-        stimulation is active.
-      stimu_elec_timestamps: The timestamps indicating when the electrical
-        stimulation is active.
-      is_active_timestamps: The timestamps indicating when at least one of the
-        stimulation is active.
-      position_timestamps: The positions of the movable pin and their
-        timestamps.
-    """
+    plt.ion()
+    stimu_mecha_timestamps, stimu_elec_timestamps, \
+        is_active_timestamps, position_timestamps = self._build_led_list()
 
-    matplotlib.use('TkAgg')
     current_time = datetime.datetime.now()
 
     stimu_mecha_graph = [[current_time +
