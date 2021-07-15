@@ -1,7 +1,10 @@
 # coding: utf-8
 
 from Remote_control import Protocol_builder
-from PyQt5.QtWidgets import QApplication
+try:
+  from PyQt5.QtWidgets import QApplication
+except ModuleNotFoundError:
+  pass
 import sys
 
 if __name__ == '__main__':

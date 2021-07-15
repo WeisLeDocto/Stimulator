@@ -3,25 +3,28 @@
 from ._Protocol_phases import Protocol_phases, Protocol_parameters
 from functools import partial
 import os
-from PyQt5.QtWidgets import QMainWindow
-from PyQt5.QtWidgets import QWidget
-from PyQt5.QtWidgets import QHBoxLayout
-from PyQt5.QtWidgets import QVBoxLayout
-from PyQt5.QtWidgets import QPushButton
-from PyQt5.QtWidgets import QListWidget
-from PyQt5.QtWidgets import QListWidgetItem
-from PyQt5.QtWidgets import QLabel
-from PyQt5.QtWidgets import QStyle
-from PyQt5.QtWidgets import QDialog
-from PyQt5.QtWidgets import QDialogButtonBox
-from PyQt5.QtWidgets import QLineEdit
-from PyQt5.QtWidgets import QSpinBox
-from PyQt5.QtWidgets import QInputDialog
-from PyQt5.QtWidgets import QMessageBox
+try:
+  from PyQt5.QtWidgets import QMainWindow
+  from PyQt5.QtWidgets import QWidget
+  from PyQt5.QtWidgets import QHBoxLayout
+  from PyQt5.QtWidgets import QVBoxLayout
+  from PyQt5.QtWidgets import QPushButton
+  from PyQt5.QtWidgets import QListWidget
+  from PyQt5.QtWidgets import QListWidgetItem
+  from PyQt5.QtWidgets import QLabel
+  from PyQt5.QtWidgets import QStyle
+  from PyQt5.QtWidgets import QDialog
+  from PyQt5.QtWidgets import QDialogButtonBox
+  from PyQt5.QtWidgets import QLineEdit
+  from PyQt5.QtWidgets import QSpinBox
+  from PyQt5.QtWidgets import QInputDialog
+  from PyQt5.QtWidgets import QMessageBox
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QDoubleValidator
+  from PyQt5.QtCore import Qt
+  from PyQt5.QtCore import QSize
+  from PyQt5.QtGui import QDoubleValidator
+except ModuleNotFoundError:
+  pass
 
 
 class Show_param_dialog(QDialog):

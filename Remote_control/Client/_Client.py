@@ -8,7 +8,10 @@ from pickle import loads, dumps, UnpicklingError
 from ast import literal_eval
 
 import sys
-from PyQt5.QtWidgets import QApplication
+try:
+  from PyQt5.QtWidgets import QApplication
+except ModuleNotFoundError:
+  pass
 from ._Graphical_interface import Graphical_interface
 
 

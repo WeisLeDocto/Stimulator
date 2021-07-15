@@ -5,21 +5,24 @@ import time
 from queue import Empty
 
 from functools import partial
-from PyQt5.QtWidgets import QMainWindow
-from PyQt5.QtWidgets import QWidget
-from PyQt5.QtWidgets import QVBoxLayout
-from PyQt5.QtWidgets import QLabel
-from PyQt5.QtWidgets import QPushButton
-from PyQt5.QtWidgets import QStyle
-from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtWidgets import QInputDialog
-from PyQt5.QtCore import QThread
-from PyQt5.QtCore import QObject
-from PyQt5.QtCore import QSize
+try:
+  from PyQt5.QtWidgets import QMainWindow
+  from PyQt5.QtWidgets import QWidget
+  from PyQt5.QtWidgets import QVBoxLayout
+  from PyQt5.QtWidgets import QLabel
+  from PyQt5.QtWidgets import QPushButton
+  from PyQt5.QtWidgets import QStyle
+  from PyQt5.QtWidgets import QMessageBox
+  from PyQt5.QtWidgets import QInputDialog
+  from PyQt5.QtCore import QThread
+  from PyQt5.QtCore import QObject
+  from PyQt5.QtCore import QSize
 
-from pyqtgraph import PlotWidget
-from pyqtgraph import mkPen
-from pyqtgraph import AxisItem
+  from pyqtgraph import PlotWidget
+  from pyqtgraph import mkPen
+  from pyqtgraph import AxisItem
+except ModuleNotFoundError:
+  pass
 
 
 class Timer(QObject):
