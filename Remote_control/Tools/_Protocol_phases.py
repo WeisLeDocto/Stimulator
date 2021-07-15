@@ -297,6 +297,11 @@ class Protocol_phases:
     # Building lists of tuples
     # The first value is the timestamp, the second tells whether the stimulation
     # is on or off from this timestamp to the next one
+    self._mecha_stimu_on[0] = (0.,
+                               self._mecha_stimu and self._mecha_stimu_on[1][1])
+    self._elec_stimu_on[0] = (0.,
+                              self._elec_stimu and self._elec_stimu_on[1][1])
+
     stimu_mecha_timestamps = [self._mecha_stimu_on[0]]
     position_timestamps = [self._position[0]]
     stimu_elec_timestamps = [self._elec_stimu_on[0]]
