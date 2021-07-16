@@ -1,36 +1,54 @@
 # coding: utf-8
 
-import paho.mqtt.client as mqtt
-import time
-from pickle import dumps
+import crappy
 
+labels = []
+to_send = []
 
-class Position_sender:
-  def __init__(self, address='localhost', port=1148):
-    self._client = mqtt.Client(str(time.time()))
-    self._client.reconnect_delay_set(max_delay=10)
-    self._client.connect(host=address, port=port, keepalive=10)
-    self._client.loop_start()
+if Elec:
+  gen_elec = crappy.blocks.Generator(Elec)
+  mosfet = crappy.blocks.IOBlock('Gpio_switch', cmd_labels=['cmd'], pin_out=18)
+  crappy.link(gen_elec, mosfet)
 
-  def __call__(self):
-    try:
-      t = 0
-      pos = 0
-      while True:
-        to_send = [[], []]
-        for _ in range(5):
-          to_send[0].append(t)
-          to_send[1].append(pos)
-          t += 0.1
-          pos += 0.05
-          time.sleep(0.1)
-        busy = 0 if not t // 10 % 3 else 1 if not (t // 10 - 1) % 3 else 2
-        self._client.publish(str(('t', 'pos')), dumps(to_send), qos=2)
-        self._client.publish(str(('busy',)), dumps(busy), qos=2)
-    except KeyboardInterrupt:
-      self._client.loop_stop()
-      self._client.disconnect()
+if Mecha:
+  gen_mecha = crappy.blocks.Generator(Mecha, freq=10)
+  machine = crappy.blocks.Machine([{'type': 'Pololu_tic',
+                                    'steps_per_mm': 252,
+                                    'current_limit': 2000,
+                                    'step_mode': 128,
+                                    't_shutoff': 1,
+                                    'backend': 'ticcmd',
+                                    'mode': 'position',
+                                    'pos_label': 'pos_mot',
+                                    'cmd': 'cmd'}])
+  crappy.link(gen_mecha, machine)
 
+  ads_1115 = crappy.blocks.IOBlock('Ads1115', backend='Pi4', sample_rate=8,
+                                   v_range=4.096, gain=29.9587,
+                                   labels=['t(s)', 'pos_ads'])
 
-if __name__ == "__main__":
-  Position_sender()()
+  sink = crappy.blocks.Sink()
+  crappy.link(ads_1115, sink)
+
+  labels += [('t(s)', 'pos_mot')]
+  to_send += [('t', 'pos')]
+
+led = crappy.blocks.Generator(Led, freq=10)
+light = crappy.blocks.IOBlock('Led_drive',
+                              pin_green=25,
+                              pin_orange=24,
+                              pin_red=23,
+                              cmd_labels=['cmd'])
+crappy.link(led, light)
+
+labels += [('cmd',)]
+to_send += [('busy',)]
+
+server = crappy.blocks.Client_server(cmd_labels=labels,
+                                     labels_to_send=to_send)
+
+crappy.link(led, server)
+if Mecha:
+  crappy.link(machine, server)
+
+crappy.start()
