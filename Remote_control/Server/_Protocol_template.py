@@ -33,7 +33,7 @@ if Mecha:
   labels += [('t(s)', 'pos_mot')]
   to_send += [('t', 'pos')]
 
-led = crappy.blocks.Generator(Led, freq=10)
+led = crappy.blocks.Generator(Led, freq=10, spam=True)
 light = crappy.blocks.IOBlock('Led_drive',
                               pin_green=25,
                               pin_orange=24,
