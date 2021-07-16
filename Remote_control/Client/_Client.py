@@ -18,7 +18,7 @@ class Client_loop:
 
   def __init__(self,
                port: int,
-               address: str = 'pi@proxy-kormusc.kulak.be',
+               address: str = 'proxy-kormusc.kulak.be',
                topic_out: str = 'Remote_control',
                topic_in: str = 'Server_status',
                topic_data: tuple = ('t', 'pos'),
