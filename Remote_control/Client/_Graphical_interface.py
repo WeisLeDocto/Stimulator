@@ -446,7 +446,7 @@ class Graphical_interface(QMainWindow):
 
       if busy is not None and busy != self._busy:
         self._busy = busy
-        self._display_busy(busy)
+        self._display_busy(busy[0][0])
 
     # Receiving the protocol list
     while not self._loop.protocol_list_queue.empty():
