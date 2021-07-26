@@ -376,6 +376,15 @@ class Protocol_builder(QMainWindow):
   def _show_graphs(self) -> None:
     """Displays graphs for visualizing the current protocol."""
 
+    # Aborting if there's nothing to display
+    if self._list_elec.count() == 0 and self._list_mecha.count() == 0:
+      mes_box = QMessageBox(QMessageBox.Warning,
+                            "Warning !",
+                            "The protocol is empty !")
+      mes_box.setStandardButtons(QMessageBox.Ok)
+      mes_box.exec()
+      return
+
     # Rebuilds the internal protocol lists
     self._protocol.reset_protocol()
 
