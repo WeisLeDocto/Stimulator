@@ -1,13 +1,13 @@
 # coding: utf-8
 
-import time
-import paho.mqtt.client as mqtt
+from time import time
+from paho.mqtt.client import Client
 from queue import Queue
-import socket
+from socket import timeout, gaierror
 from pickle import loads, dumps, UnpicklingError
 from ast import literal_eval
 
-import sys
+from sys import argv, exit
 from PyQt5.QtWidgets import QApplication
 from ._Graphical_interface import Graphical_interface
 
@@ -77,7 +77,7 @@ class Client_loop:
     self.protocol_list_queue = Queue()
 
     # Setting the mqtt client
-    self._client = mqtt.Client(str(time.time()))
+    self._client = Client(str(time()))
     self._client.on_connect = self._on_connect
     self._client.on_message = self._on_message
     self._client.on_disconnect = self._on_disconnect
@@ -92,9 +92,9 @@ class Client_loop:
     at exit."""
 
     try:
-      self.app = QApplication(sys.argv)
+      self.app = QApplication(argv)
       Graphical_interface(self)()
-      sys.exit(self.app.exec_())
+      exit(self.app.exec_())
     finally:
       self._client.loop_stop()
       self._client.disconnect()
@@ -179,11 +179,11 @@ class Client_loop:
         self._client.connect(host=self._address, port=self._port, keepalive=10)
       self.is_connected = True
       self._connected_once = True
-    except socket.timeout:
+    except timeout:
       print("Impossible to reach the given address, aborting")
       self.is_connected = False
       return "Address unreachable"
-    except socket.gaierror:
+    except gaierror:
       print("Invalid address given, please check the spelling")
       self.is_connected = False
       return "Address invalid"

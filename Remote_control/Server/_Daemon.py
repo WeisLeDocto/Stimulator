@@ -1,10 +1,10 @@
 # coding: utf-8
 
-import socket
-import paho.mqtt.client as mqtt
+from socket import timeout, gaierror
+from paho.mqtt.client import Client
 from queue import Queue, Empty
 from pickle import loads, dumps, UnpicklingError
-import time
+from time import time, sleep
 from subprocess import Popen, TimeoutExpired
 from pathlib import Path
 from signal import SIGINT
@@ -69,7 +69,7 @@ class Daemon_run:
     self._protocol_queue = Queue()
 
     # Setting the mqtt client
-    self._client = mqtt.Client(str(time.time()))
+    self._client = Client(str(time()))
     self._client.on_connect = self._on_connect
     self._client.on_message = self._on_message
     self._client.reconnect_delay_set(max_delay=10)
@@ -81,7 +81,7 @@ class Daemon_run:
 
     # Starting the mosquitto broker
     self._launch_mosquitto(port)
-    time.sleep(5)
+    sleep(5)
 
     # Loop for ensuring the connection to the broker is well established
     try_count = 15
@@ -89,15 +89,15 @@ class Daemon_run:
       try:
         self._client.connect(host=address, port=port, keepalive=10)
         break
-      except socket.timeout:
+      except timeout:
         raise
-      except socket.gaierror:
+      except gaierror:
         raise
       except ConnectionRefusedError:
         try_count -= 1
         if try_count == 0:
           raise
-        time.sleep(1)
+        sleep(1)
 
     self._client.loop_start()
     print("Started Mosquitto")
@@ -113,7 +113,7 @@ class Daemon_run:
       self._protocol_manager()
     except DaemonStop:
       self._publish("Stopping the server and the MQTT broker")
-      time.sleep(3)
+      sleep(3)
     finally:
       print("Finishing")
       self._client.loop_stop()
@@ -233,7 +233,7 @@ class Daemon_run:
         else:
           self._publish("Error ! Invalid command message")
 
-      time.sleep(1)
+      sleep(1)
 
   def _protocol_status(self) -> None:
     """Sends the protocol status to the clients."""

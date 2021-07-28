@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import datetime
+from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 
 
@@ -524,50 +524,50 @@ class Protocol_phases:
     stimu_mecha_timestamps, stimu_elec_timestamps, \
         is_active_timestamps, position_timestamps = self._build_led_list()
 
-    current_time = datetime.datetime.now()
+    current_time = datetime.now()
 
     stimu_mecha_graph = [[current_time +
-                          datetime.timedelta(stimu_mecha_timestamps[0][0])],
+                          timedelta(stimu_mecha_timestamps[0][0])],
                          [stimu_mecha_timestamps[0][1]]]
     position_graph = [[current_time +
-                       datetime.timedelta(position_timestamps[0][0])],
+                       timedelta(position_timestamps[0][0])],
                       [position_timestamps[0][1]]]
     stimu_elec_graph = [[current_time +
-                         datetime.timedelta(stimu_elec_timestamps[0][0])],
+                         timedelta(stimu_elec_timestamps[0][0])],
                         [stimu_elec_timestamps[0][1]]]
 
     if self._mecha_stimu:
       for t, value in stimu_mecha_timestamps[1:]:
         stimu_mecha_graph[0].append(current_time +
-                                    datetime.timedelta(seconds=t - 0.001))
+                                    timedelta(seconds=t - 0.001))
         stimu_mecha_graph[0].append(current_time +
-                                    datetime.timedelta(seconds=t))
+                                    timedelta(seconds=t))
         stimu_mecha_graph[1].append(stimu_mecha_graph[1][-1])
         stimu_mecha_graph[1].append(value)
 
       for t, value in position_timestamps[1:]:
         position_graph[0].append(current_time +
-                                 datetime.timedelta(seconds=t - 0.001))
-        position_graph[0].append(current_time + datetime.timedelta(seconds=t))
+                                 timedelta(seconds=t - 0.001))
+        position_graph[0].append(current_time + timedelta(seconds=t))
         position_graph[1].append(position_graph[1][-1])
         position_graph[1].append(value)
 
     if self._elec_stimu:
       for t, value in stimu_elec_timestamps[1:]:
         stimu_elec_graph[0].append(current_time +
-                                   datetime.timedelta(seconds=t - 0.001))
+                                   timedelta(seconds=t - 0.001))
         stimu_elec_graph[0].append(current_time +
-                                   datetime.timedelta(seconds=t))
+                                   timedelta(seconds=t))
         stimu_elec_graph[1].append(stimu_elec_graph[1][-1])
         stimu_elec_graph[1].append(value)
 
     is_active_graph = [[current_time +
-                        datetime.timedelta(is_active_timestamps[0][0])],
+                        timedelta(is_active_timestamps[0][0])],
                        [is_active_timestamps[0][1]]]
     for t, value in is_active_timestamps[1:]:
       is_active_graph[0].append(current_time +
-                                datetime.timedelta(seconds=t - 0.001))
-      is_active_graph[0].append(current_time + datetime.timedelta(seconds=t))
+                                timedelta(seconds=t - 0.001))
+      is_active_graph[0].append(current_time + timedelta(seconds=t))
       is_active_graph[1].append(is_active_graph[1][-1])
       is_active_graph[1].append(value)
 

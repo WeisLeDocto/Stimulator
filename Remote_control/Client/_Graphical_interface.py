@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from pathlib import Path
-import time
+from time import sleep
 from queue import Empty
 
 from functools import partial
@@ -44,7 +44,7 @@ class Timer(QObject):
 
     while not self._stop:
       self._gui.gui_loop()
-      time.sleep(self._delay)
+      sleep(self._delay)
 
   def stop(self) -> None:
     """Sets the :attr:`_stop` flag to :obj:`False`."""
