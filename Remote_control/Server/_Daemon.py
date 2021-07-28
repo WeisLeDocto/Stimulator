@@ -6,8 +6,7 @@ from queue import Queue, Empty
 from pickle import loads, dumps, UnpicklingError
 import time
 from subprocess import Popen, TimeoutExpired
-from os.path import abspath, dirname, exists
-from os import mkdir, listdir
+from pathlib import Path
 from signal import SIGINT
 
 
@@ -252,12 +251,11 @@ class Daemon_run:
     """Sends the clients the list of protocols in the Protocols/ folder"""
 
     try:
-      path = dirname(abspath(__file__))
-      path = path.replace("/Server", "")
-      protocol_list = listdir(path + "/Protocols/")
-      protocols = [protocol.replace("Protocol_", "").replace(".py", "")
+      path = Path.cwd().parent
+      protocol_list = Path.iterdir(path / "Protocols")
+      protocols = [protocol.name.replace("Protocol_", "").replace(".py", "")
                    for protocol in protocol_list if
-                   protocol.startswith("Protocol")]
+                   protocol.name.startswith("Protocol")]
     except FileNotFoundError:
       protocols = []
     self._client.publish(topic=self._topic_protocol_list,
@@ -276,8 +274,8 @@ class Daemon_run:
     """
 
     protocol = []
-    path = dirname(abspath(__file__)).replace("/Server", "")
-    with open(path + "/Protocols/Protocol_" + name + ".py", 'r') \
+    path = Path.cwd().parent
+    with open(path / "Protocols" / ("Protocol_" + name + ".py"), 'r') \
          as protocol_file:
       for line in protocol_file:
         protocol.append(line)
@@ -301,8 +299,8 @@ class Daemon_run:
         server.
     """
 
-    path = dirname(abspath(__file__)).replace("/Server", "")
-    with open(path + "/password.txt", 'r') as password_file:
+    path = Path.cwd().parent
+    with open(path / "password.txt", 'r') as password_file:
       password = password_file.read()
     if p_word != password:
       self._publish("Error ! Wrong password")
@@ -311,15 +309,15 @@ class Daemon_run:
     try:
       protocol = self._protocol_queue.get(timeout=5)
 
-      if not exists(path + "/Protocols/"):
-        mkdir(path + "/Protocols/")
-        with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
+      if not Path.exists(path / "Protocols"):
+        Path.mkdir(path / "Protocols")
+        with open(path / "Protocols" / "__init__.py", 'w') as init_file:
           init_file.write("# coding: utf-8" + "\n")
           init_file.write("\n")
           init_file.write("from .Protocol_" + name + " import Led, Mecha, Elec"
                           + "\n")
 
-      with open(path + "/Protocols/Protocol_" + name + ".py", 'w') as \
+      with open(path / "Protocols" / ("Protocol_" + name + ".py"), 'w') as \
            protocol_file:
         for line in protocol:
           protocol_file.write(line)
@@ -338,8 +336,8 @@ class Daemon_run:
       protocol: The name of the protocol to choose.
     """
 
-    path = dirname(abspath(__file__)).replace("/Server", "")
-    with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
+    path = Path.cwd().parent
+    with open(path / "Protocols" / "__init__.py", 'w') as init_file:
       init_file.write("# coding: utf-8" + "\n")
       init_file.write("\n")
       init_file.write("from .Protocol_" + protocol + " import Led, Mecha, Elec"
@@ -351,8 +349,8 @@ class Daemon_run:
     ``_Protocol_template.py`` file."""
 
     from ..Protocols import Led, Mecha, Elec
-    path = dirname(abspath(__file__)).replace("/Remote_control/Server", "")
-    with open(path + "/Protocol.py", 'w') as executable_file:
+    path = Path.cwd().parent.parent
+    with open(path / "Protocol.py", 'w') as executable_file:
       executable_file.write('# coding: utf-8' + "\n")
       executable_file.write("\n")
 
@@ -371,8 +369,8 @@ class Daemon_run:
         executable_file.write(str(dic) + "," + "\n")
       executable_file.write("]" + "\n")
 
-      with open(path + "/Remote_control/Server/_Protocol_template.py", 'r') \
-           as template:
+      with open(path / "Remote_control" / "Server" / "_Protocol_template.py",
+                'r') as template:
         for line in template:
           if "#" not in line:
             executable_file.write(line)

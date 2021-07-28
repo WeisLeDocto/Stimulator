@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import os
+from pathlib import Path
 import time
 from queue import Empty
 
@@ -299,17 +299,17 @@ class Graphical_interface(QMainWindow):
       name: The name of the protocol.
     """
 
-    path = os.path.dirname(os.path.abspath(__file__))
-    path = path.replace("/Client", "")
-    if not os.path.exists(path + "/Protocols/"):
-      os.mkdir(path + "/Protocols/")
-      with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
+    path = Path.cwd().parent
+    if not Path.exists(path / "Protocols"):
+      Path.mkdir(path / "Protocols")
+      with open(path / "Protocols" / "__init__.py", 'w') as init_file:
         init_file.write("# coding: utf-8" + "\n")
         init_file.write("\n")
-        init_file.write("from .Protocol_" + name + " import Led, Mecha, Elec"
-                        + "\n")
+        init_file.write(
+          "from .Protocol_" + name + " import Led, Mecha, Elec"
+          + "\n")
 
-    with open(path + "/Protocols/Protocol_" + name + ".py", 'w') as \
+    with open(path / "Protocols" / ("Protocol_" + name + ".py"), 'w') as \
          protocol_file:
       for line in protocol:
         protocol_file.write(line)
@@ -338,13 +338,14 @@ class Graphical_interface(QMainWindow):
 
     elif message == "Upload protocol":
       try:
-        path = os.path.dirname(os.path.abspath(__file__)).replace("/Client", "")
-        protocol_list = os.listdir(path + "/Protocols/")
+        path = Path.cwd().parent
+        protocol_list = Path.iterdir(path / "Protocols")
       except FileNotFoundError:
         self._display_status("Error ! No protocol found. Please create one")
         return
-      items = [protocol.replace("Protocol_", "").replace(".py", "")
-               for protocol in protocol_list if protocol.startswith("Protocol")]
+      items = [protocol.name.replace("Protocol_", "").replace(".py", "")
+               for protocol in protocol_list
+               if protocol.name.startswith("Protocol")]
       item, ok = QInputDialog.getItem(self,
                                       "Protocol selection",
                                       "Please select the protocol to upload",
@@ -364,7 +365,7 @@ class Graphical_interface(QMainWindow):
       message += " " + password
 
       protocol = []
-      with open(path + "/Protocols/Protocol_" + item + ".py", 'r') \
+      with open(path / "Protocols" / ("Protocol_" + item + ".py"), 'r') \
            as protocol_file:
         for line in protocol_file:
           protocol.append(line)

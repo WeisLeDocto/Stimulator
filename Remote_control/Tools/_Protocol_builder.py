@@ -2,7 +2,7 @@
 
 from ._Protocol_phases import Protocol_phases, Protocol_parameters
 from functools import partial
-import os
+from pathlib import Path
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QHBoxLayout
@@ -441,21 +441,19 @@ class Protocol_builder(QMainWindow):
 
     # Actually writing the protocol .py file
     if ok:
-      path = os.path.dirname(os.path.abspath(__file__))
-      path = path.replace("/Tools", "")
+      path = Path.cwd().parent
 
-      if not os.path.exists(path + "/Protocols/"):
-        os.mkdir(path + "/Protocols/")
-        with open(path + "/Protocols/" + "__init__.py", 'w') as init_file:
+      if not Path.exists(path / "Protocols"):
+        Path.mkdir(path / "Protocols")
+        with open(path / "Protocols" / "__init__.py", 'w') as init_file:
           init_file.write("# coding: utf-8" + "\n")
           init_file.write("\n")
           init_file.write(
             "from .Protocol_" + name + " import Led, Mecha, Elec"
             + "\n")
 
-      with open(path + "/Protocols/" + "Protocol_" + name +
-                ".py", 'w') as exported_file:
-
+      with open(path / "Protocols" / ("Protocol_" + name +
+                                      ".py"), 'w') as exported_file:
         for line in self._protocol.py_file:
           exported_file.write(line)
 
