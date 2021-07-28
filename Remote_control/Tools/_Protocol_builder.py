@@ -441,7 +441,7 @@ class Protocol_builder(QMainWindow):
 
     # Actually writing the protocol .py file
     if ok:
-      path = Path.cwd().parent
+      path = Path(__file__).parent.parent
 
       if not Path.exists(path / "Protocols"):
         Path.mkdir(path / "Protocols")

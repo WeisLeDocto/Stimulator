@@ -251,7 +251,7 @@ class Daemon_run:
     """Sends the clients the list of protocols in the Protocols/ folder"""
 
     try:
-      path = Path.cwd().parent
+      path = Path(__file__).parent.parent
       protocol_list = Path.iterdir(path / "Protocols")
       protocols = [protocol.name.replace("Protocol_", "").replace(".py", "")
                    for protocol in protocol_list if
@@ -274,7 +274,7 @@ class Daemon_run:
     """
 
     protocol = []
-    path = Path.cwd().parent
+    path = Path(__file__).parent.parent
     with open(path / "Protocols" / ("Protocol_" + name + ".py"), 'r') \
          as protocol_file:
       for line in protocol_file:
@@ -299,7 +299,7 @@ class Daemon_run:
         server.
     """
 
-    path = Path.cwd().parent
+    path = Path(__file__).parent.parent
     with open(path / "password.txt", 'r') as password_file:
       password = password_file.read()
     if p_word != password:
@@ -336,7 +336,7 @@ class Daemon_run:
       protocol: The name of the protocol to choose.
     """
 
-    path = Path.cwd().parent
+    path = Path(__file__).parent.parent
     with open(path / "Protocols" / "__init__.py", 'w') as init_file:
       init_file.write("# coding: utf-8" + "\n")
       init_file.write("\n")
@@ -349,7 +349,7 @@ class Daemon_run:
     ``_Protocol_template.py`` file."""
 
     from ..Protocols import Led, Mecha, Elec
-    path = Path.cwd().parent.parent
+    path = Path(__file__).parent.parent.parent
     with open(path / "Protocol.py", 'w') as executable_file:
       executable_file.write('# coding: utf-8' + "\n")
       executable_file.write("\n")

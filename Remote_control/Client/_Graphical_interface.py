@@ -299,7 +299,7 @@ class Graphical_interface(QMainWindow):
       name: The name of the protocol.
     """
 
-    path = Path.cwd().parent
+    path = Path(__file__).parent.parent
     if not Path.exists(path / "Protocols"):
       Path.mkdir(path / "Protocols")
       with open(path / "Protocols" / "__init__.py", 'w') as init_file:
@@ -338,7 +338,7 @@ class Graphical_interface(QMainWindow):
 
     elif message == "Upload protocol":
       try:
-        path = Path.cwd().parent
+        path = Path(__file__).parent.parent
         protocol_list = Path.iterdir(path / "Protocols")
       except FileNotFoundError:
         self._display_status("Error ! No protocol found. Please create one")
