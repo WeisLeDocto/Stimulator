@@ -2,8 +2,8 @@
 
 from Remote_control import Daemon_run
 import daemon
-from os.path import dirname, abspath
+from pathlib import Path
 
 if __name__ == "__main__":
-  with daemon.DaemonContext(working_directory=dirname(abspath(__file__))):
+  with daemon.DaemonContext(working_directory=Path.cwd()):
     Daemon_run(1148)()
