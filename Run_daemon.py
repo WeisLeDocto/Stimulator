@@ -6,4 +6,4 @@ from pathlib import Path
 
 if __name__ == "__main__":
   with DaemonContext(working_directory=Path(__file__).parent):
-    Daemon_run(1148)()
+    Daemon_run(1148, broker=False)()

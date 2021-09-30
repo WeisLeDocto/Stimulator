@@ -27,6 +27,7 @@ class Daemon_run:
 
   def __init__(self,
                port: int,
+               broker: bool,
                address: str = 'localhost',
                topic_in: str = 'Remote_control',
                topic_out: str = 'Server_status',
@@ -37,6 +38,7 @@ class Daemon_run:
 
     Args:
       port: The network port the broker should listen to.
+      broker: If :obj:`True`, starts the Mosquitto Broker.
       address: The network address of the broker.
       topic_in: The topic for receiving commands from clients.
       topic_out: The topic for sending messages to the clients.
@@ -59,6 +61,8 @@ class Daemon_run:
     if not isinstance(topic_protocol_list, str):
       raise TypeError("topic_protocol_list should be a string")
 
+    self._broker = broker
+
     # Setting the topics and the queue
     self._topic_in = topic_in
     self._topic_out = topic_out
@@ -80,8 +84,9 @@ class Daemon_run:
     self._last_return_code = None
 
     # Starting the mosquitto broker
-    self._launch_mosquitto(port)
-    sleep(5)
+    if self._broker:
+      self._launch_mosquitto(port)
+      sleep(5)
 
     # Loop for ensuring the connection to the broker is well established
     try_count = 15
@@ -112,19 +117,25 @@ class Daemon_run:
       print("Starting manager")
       self._protocol_manager()
     except DaemonStop:
-      self._publish("Stopping the server and the MQTT broker")
+      if self._broker:
+        self._publish("Stopping the server and the MQTT broker")
+      else:
+        self._publish("Stopping the server")
       sleep(3)
     finally:
       print("Finishing")
       self._client.loop_stop()
       self._client.disconnect()
-      try:
-        self._mosquitto.terminate()
-        self._mosquitto.wait(timeout=15)
-        print("Finished OK")
-      except TimeoutExpired:
-        self._mosquitto.kill()
-        print("Finished NOK")
+      if self._broker:
+        try:
+          self._mosquitto.terminate()
+          self._mosquitto.wait(timeout=15)
+          print("Finished OK, broker stopped")
+        except TimeoutExpired:
+          self._mosquitto.kill()
+          print("Finished NOK")
+      else:
+        print("Finished OK,")
 
   def _launch_mosquitto(self, port: int) -> None:
     """Starts the mosquitto broker in a separate process.
