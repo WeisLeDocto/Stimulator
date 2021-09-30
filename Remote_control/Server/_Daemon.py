@@ -50,6 +50,8 @@ class Daemon_run:
 
     if not isinstance(port, int):
       raise TypeError("port should be an integer")
+    if not isinstance(broker, bool):
+      raise TypeError("broker should be a bool")
     if not isinstance(topic_in, str):
       raise TypeError("topic_in should be a string")
     if not isinstance(topic_out, str):
@@ -149,7 +151,7 @@ class Daemon_run:
     except FileNotFoundError:
       raise
 
-  def _on_message(self, client, userdata, message) -> None:
+  def _on_message(self, _, __, message) -> None:
     """Callback executed upon reception of a message from the clients.
 
     Simply puts the message in a queue.
@@ -164,7 +166,7 @@ class Daemon_run:
       self._publish("Warning ! Message raised UnpicklingError, ignoring it")
     print("Got message")
 
-  def _on_connect(self, client, userdata, flags, rc) -> None:
+  def _on_connect(self, *_, **__) -> None:
     """Callback executed when connecting to the broker.
 
     Simply subscribes to the topic.

@@ -584,7 +584,7 @@ class Graphical_interface(QMainWindow):
       print("Forcing thread to stop")
       self._thread.terminate()
     else:
-      print("thread terminated gracefully")
+      print("Thread terminated gracefully")
 
   def closeEvent(self, event) -> None:
     """Re-writing the ``closeEvent`` handling so that it also stops the

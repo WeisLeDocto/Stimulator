@@ -11,8 +11,8 @@ cyclic_stretching_steady = {'rest_position_mm': float,
                             'number_of_reps': int,
                             'time_to_reach_position_seconds': float,
                             'number_of_sets': int,
-                            'rest_between_sets_minutes': float,
-                            'rest_between_reps_minutes': float}
+                            'rest_between_reps_minutes': float,
+                            'rest_between_sets_minutes': float}
 
 cyclic_stretching_progressive = {'rest_position_mm': float,
                                  'first_stretched_position_mm': float,
@@ -21,8 +21,8 @@ cyclic_stretching_progressive = {'rest_position_mm': float,
                                  'number_of_reps': int,
                                  'time_to_reach_position_seconds': float,
                                  'number_of_sets': int,
-                                 'rest_between_sets_minutes': float,
-                                 'rest_between_reps_minutes': float}
+                                 'rest_between_reps_minutes': float,
+                                 'rest_between_sets_minutes': float}
 
 mechanical_rest = {'rest_duration_hours': float,
                    'rest_position_mm': float}

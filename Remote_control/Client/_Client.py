@@ -110,7 +110,7 @@ class Client_loop:
                                 payload=dumps(protocol),
                                 qos=2)[0]
 
-  def _on_message(self, client, userdata, message) -> None:
+  def _on_message(self, _, __, message) -> None:
     """Callback executed upon reception of a message or data from the
     server.
 
@@ -137,7 +137,7 @@ class Client_loop:
       # If the message hasn't been pickled before sending
       print("Warning ! Message raised UnpicklingError, ignoring it")
 
-  def _on_connect(self, client, userdata, flags, rc) -> None:
+  def _on_connect(self, *_, **__) -> None:
     """Callback executed when connecting to the server.
 
     Simply subscribes to all the necessary topics.
@@ -152,7 +152,7 @@ class Client_loop:
     self.is_connected = True
     self._client.loop_start()
 
-  def _on_disconnect(self, client, userdata, rc) -> None:
+  def _on_disconnect(self, *_, **__) -> None:
     """Sets the :attr:`is_connected` flag to :obj:`False`."""
 
     self.is_connected = False
