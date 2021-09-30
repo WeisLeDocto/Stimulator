@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
+from matplotlib.widgets import TextBox
 
 
 cyclic_stretching_steady = {'rest_position_mm': float,
@@ -571,8 +572,11 @@ class Protocol_phases:
       is_active_graph[1].append(is_active_graph[1][-1])
       is_active_graph[1].append(value)
 
-    plt.figure()
-    if self._elec_stimu and self._mecha_stimu:
+    plot_elec = bool(self._elec_stimu and len(self._elec_stimu) > 2)
+    plot_mecha = bool(self._mecha_stimu and len(self._mecha_stimu) > 2)
+
+    fig = plt.figure()
+    if plot_elec and plot_mecha:
       plt.subplot(211)
       plt.title("Movable pin position")
       plt.ylabel("Position (mm)")
@@ -584,14 +588,21 @@ class Protocol_phases:
       plt.plot(stimu_elec_graph[0], stimu_elec_graph[1])
       plt.legend(['Mechanical',
                   'Electrical'])
-    elif self._elec_stimu:
+    elif plot_elec:
       plt.plot(stimu_elec_graph[0], stimu_elec_graph[1])
       plt.title("Electrical stimulation")
-    else:
+    elif plot_mecha:
       plt.title("Mechanical stimulation")
       plt.plot(position_graph[0], position_graph[1])
       plt.plot(stimu_mecha_graph[0], stimu_mecha_graph[1])
       plt.legend(['Position', 'Activity'])
+    else:
+      plt.subplot()
+      ax = fig.axes[0]
+      TextBox(ax, '', 'Cannot display the protocol, it is only resting...\n'
+                      'Sorryyyyy !')
+      plt.show()
+      return
 
     plt.figure()
     plt.title("Overview of medium refreshment times")
