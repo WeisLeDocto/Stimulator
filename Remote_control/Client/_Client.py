@@ -18,7 +18,6 @@ class Client_loop:
 
   def __init__(self,
                port: int,
-               address: str = 'proxy-kormusc.kulak.be',
                topic_out: str = 'Remote_control',
                topic_in: str = 'Server_status',
                topic_data: tuple = ('t', 'pos'),
@@ -30,7 +29,6 @@ class Client_loop:
 
     Args:
       port: The server port to use.
-      address: The server network address.
       topic_out: The topic for sending commands to the server.
       topic_in: The topic for receiving messages from the server.
       topic_data: The topic for receiving data from the server.
@@ -44,9 +42,6 @@ class Client_loop:
     if not isinstance(port, int):
       raise TypeError("port should be an integer")
     self._port = port
-    if not isinstance(address, str):
-      raise TypeError("address should be an string")
-    self._address = address
     if not isinstance(topic_in, str):
       raise TypeError("topic_in should be a string")
     if not isinstance(topic_out, str):
@@ -162,10 +157,13 @@ class Client_loop:
 
     self.is_connected = False
 
-  def connect_to_broker(self) -> str:
+  def connect_to_broker(self, address: str) -> str:
     """Simply connects to the server.
 
     Manages the different connection issues that could occur.
+
+    Args:
+      address: The address to connect to.
 
     Returns:
       A text message to be displayed to the user in case connection failed.
@@ -176,7 +174,7 @@ class Client_loop:
       if self._connected_once:
         self._client.reconnect()
       else:
-        self._client.connect(host=self._address, port=self._port, keepalive=10)
+        self._client.connect(host=address, port=self._port, keepalive=10)
       self.is_connected = True
       self._connected_once = True
     except timeout:

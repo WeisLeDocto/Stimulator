@@ -22,6 +22,10 @@ from pyqtgraph import mkPen
 from pyqtgraph import AxisItem
 
 
+devices = {'Green Stimulator': 'proxy-kormusc.kulak.be',
+           'Beige Stimulator': '10.36.191.44'}
+
+
 class Timer(QObject):
   """Object that is actually living in the separate thread for updating the
   display."""
@@ -71,6 +75,7 @@ class Graphical_interface(QMainWindow):
     self._protocol_list = []
     self._protocol_to_download = None
     self._request_protocol_list = False
+    self._address = None
 
   def __call__(self) -> None:
     """Creates and displays the interface."""
@@ -214,7 +219,8 @@ class Graphical_interface(QMainWindow):
     """
 
     if bool_:
-      self._is_connected_display.setText("Connected")
+      dev = [dev for dev in devices if devices[dev] == self._address][0]
+      self._is_connected_display.setText("Connected to the " + str(dev))
       self._connection_status_display.setText("")
       self._is_connected_display.setStyleSheet("color: black;")
     else:
@@ -538,7 +544,20 @@ class Graphical_interface(QMainWindow):
   def _try_connect(self) -> None:
     """Tries to connect to the server."""
 
-    self._connection_status_display.setText(self._loop.connect_to_broker())
+    if self._address is None:
+      item, ok = QInputDialog.getItem(self,
+                                      "Stimulator selection",
+                                      "Please select the stimulator to connect "
+                                      "to :",
+                                      devices.keys(),
+                                      0,
+                                      False)
+      if not ok:
+        return
+      self._address = devices[item]
+
+    self._connection_status_display.setText(
+        self._loop.connect_to_broker(address=self._address))
     self._display_if_connected(self._loop.is_connected)
     self._disable_if_connected(self._loop.is_connected)
 
