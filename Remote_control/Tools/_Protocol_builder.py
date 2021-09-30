@@ -81,7 +81,7 @@ class Param_dialog(QDialog):
   """A class for displaying a window allowing the user to choose the parameters
   for a given protocol phase."""
 
-  def __init__(self, parent, text) -> None:
+  def __init__(self, parent, text, previous=None) -> None:
     """Sets the layout and displays the window.
 
     Args:
@@ -98,6 +98,9 @@ class Param_dialog(QDialog):
     self.field_list = []
     self.validation_list = []
 
+    if previous is None:
+      previous = [None for _ in Protocol_parameters[text]]
+
     double_validator = QDoubleValidator(0, 10000000, 100)
 
     display = QLabel("Please enter the phase parameters :")
@@ -113,7 +116,7 @@ class Param_dialog(QDialog):
     right_layout = QVBoxLayout()
 
     # Rearranging the name for a nicer display
-    for param, typ in Protocol_parameters[text].items():
+    for (param, typ), prev in zip(Protocol_parameters[text].items(), previous):
       text_list = param.capitalize().replace('_', ' ').split()
       text_str = ' '.join(text_list[:-1] + ['(' + text_list[-1] + ')']
                           if typ is float else text_list)
@@ -122,6 +125,10 @@ class Param_dialog(QDialog):
       self.validation_list.append(QLabel(""))
       if isinstance(self.field_list[-1], QLineEdit):
         self.field_list[-1].setValidator(double_validator)
+        if prev is not None:
+          self.field_list[-1].setText(str(prev).replace('.', ','))
+      elif isinstance(self.field_list[-1], QSpinBox) and prev is not None:
+        self.field_list[-1].setValue(prev)
       center_layout.addWidget(self.field_list[-1])
       right_layout.addWidget(self.validation_list[-1])
 
@@ -480,15 +487,23 @@ class Protocol_builder(QMainWindow):
         list_.addItem(Phase(text, values))
 
   def _show_item(self, list_) -> None:
-    """Shows a window listing the selected protocol phase parameters.
+    """Shows a dialog window for editing an existing protocol phase.
 
     Args:
       list_: Either the mechanical or electrical list of phases.
     """
 
-    Show_param_dialog(self,
-                      list_.currentItem().txt,
-                      list_.currentItem().values)
+    dialog = Param_dialog(self,
+                          list_.currentItem().txt,
+                          list_.currentItem().values)
+    if dialog.exec_():
+      values = dialog.return_values()
+      row = list_.currentRow()
+      if row >= 0:
+        list_.insertItem(row + 1, Phase(list_.currentItem().txt, values))
+        list_.takeItem(row)
+      else:
+        list_.addItem(Phase(list_.currentItem().txt, values))
 
   @staticmethod
   def _remove_item(list_) -> None:
