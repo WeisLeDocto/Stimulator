@@ -30,7 +30,7 @@ class Timer(QObject):
   """Object that is actually living in the separate thread for updating the
   display."""
 
-  def __init__(self, gui, delay) -> None:
+  def __init__(self, gui: QMainWindow, delay: float) -> None:
     """Initializes the parent class and sets the flags.
 
     Args:

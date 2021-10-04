@@ -3,6 +3,9 @@
 from ._Protocol_phases import Protocol_phases, Protocol_parameters
 from functools import partial
 from pathlib import Path
+from ast import literal_eval
+from typing import List, Union
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QHBoxLayout
@@ -24,70 +27,22 @@ from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QDoubleValidator
 
 
-class Show_param_dialog(QDialog):
-  """Class for displaying the characteristics of a protocol phase when
-  double-clicking on it."""
-
-  def __init__(self, parent, text, values) -> None:
-    """Sets the layout and displays the window.
-
-    Args:
-      parent: The parent widget.
-      text: The text of the button clicked for creating this phase. Used for
-        retrieving the fields names.
-      values: The list of the fields values, in the right order.
-    """
-
-    super().__init__(parent=parent)
-    self.setWindowTitle("Phase description")
-    main_layout = QVBoxLayout()
-    self.setLayout(main_layout)
-
-    display = QLabel("Parameters for the selected phase :")
-    display.setStyleSheet("font-weight: bold")
-    main_layout.addWidget(display)
-
-    fields_layout = QHBoxLayout()
-
-    # Parameter name on the left, value on the right
-    left_layout = QVBoxLayout()
-    right_layout = QVBoxLayout()
-
-    # Rearranging the name for a nicer display
-    for (param, typ), value in zip(Protocol_parameters[text].items(), values):
-      text_list = param.capitalize().replace('_', ' ').split()
-      text_str = ' '.join(text_list[:-1] + ['(' + text_list[-1] + ')']
-                          if typ is float else text_list)
-      left_layout.addWidget(QLabel(text_str + " :"))
-      right_layout.addWidget(QLabel(str(value)))
-
-    fields_layout.addLayout(left_layout)
-    fields_layout.addLayout(right_layout)
-
-    main_layout.addLayout(fields_layout)
-
-    # Button for exiting
-    button = QDialogButtonBox(
-      QDialogButtonBox.StandardButton(QDialogButtonBox.Ok))
-
-    button.accepted.connect(self.accept)
-
-    main_layout.addWidget(button)
-
-    self.exec_()
-
-
 class Param_dialog(QDialog):
   """A class for displaying a window allowing the user to choose the parameters
   for a given protocol phase."""
 
-  def __init__(self, parent, text, previous=None) -> None:
+  def __init__(self,
+               parent: QMainWindow,
+               text: str,
+               previous: list = None) -> None:
     """Sets the layout and displays the window.
 
     Args:
       parent: The parent widget.
       text: The text of the button clicked for creating this phase. Used for
         retrieving the fields names and types.
+      previous: The current values for the parameters, only for editing an
+        existing phase.
     """
 
     super().__init__(parent=parent)
@@ -187,7 +142,7 @@ class Param_dialog(QDialog):
 class Phase(QListWidgetItem):
   """Subclass of QListWidgetItem with the extra attributes values and txt."""
 
-  def __init__(self, text, values) -> None:
+  def __init__(self, text: str, values: list) -> None:
     super().__init__()
     self.setText(text.replace('Add ', '').capitalize())
     self.values = values
@@ -198,7 +153,7 @@ class Protocol_builder(QMainWindow):
   """Class for displaying a graphical interface in which the user can create and
   visualize stimulation protocols."""
 
-  def __init__(self, app) -> None:
+  def __init__(self, app: QApplication) -> None:
     """Sets instance attributes.
 
     Args:
@@ -538,7 +493,7 @@ class Protocol_builder(QMainWindow):
 
         exported_file.write("Led, Mecha, Elec = new_prot.export()" + "\n")
 
-  def _add_item(self, list_, text) -> None:
+  def _add_item(self, list_: QListWidget, text: str) -> None:
     """Adds an protocol phase to the list of phases.
 
     First displays an interface for choosing the parameters of the phase.
@@ -558,7 +513,7 @@ class Protocol_builder(QMainWindow):
       else:
         list_.addItem(Phase(text, values))
 
-  def _show_item(self, list_) -> None:
+  def _show_item(self, list_: QListWidget) -> None:
     """Shows a dialog window for editing an existing protocol phase.
 
     Args:
@@ -578,7 +533,7 @@ class Protocol_builder(QMainWindow):
         list_.addItem(Phase(list_.currentItem().txt, values))
 
   @staticmethod
-  def _remove_item(list_) -> None:
+  def _remove_item(list_: QListWidget) -> None:
     """Removes a phase from the current protocol.
 
     Args:
@@ -590,7 +545,7 @@ class Protocol_builder(QMainWindow):
       list_.takeItem(row)
 
   @staticmethod
-  def _move_item(position, list_) -> None:
+  def _move_item(position: int, list_: QListWidget) -> None:
     """Moves a phase up or down in the list of phases.
 
     Args:
