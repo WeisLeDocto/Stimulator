@@ -5,9 +5,10 @@ from paho.mqtt.client import Client
 from queue import Queue, Empty
 from pickle import loads, dumps, UnpicklingError
 from time import time, sleep
-from subprocess import Popen, TimeoutExpired
+from subprocess import Popen, TimeoutExpired, check_output
 from pathlib import Path
 from signal import SIGINT
+from psutil import Process, AccessDenied
 
 
 class DaemonStop(Exception):
@@ -119,10 +120,7 @@ class Daemon_run:
       print("Starting manager")
       self._protocol_manager()
     except DaemonStop:
-      if self._broker:
-        self._publish("Stopping the server and the MQTT broker")
-      else:
-        self._publish("Stopping the server")
+      self._publish("Stopping the server and the MQTT broker")
       sleep(3)
     finally:
       print("Finishing")
@@ -137,6 +135,13 @@ class Daemon_run:
           self._mosquitto.kill()
           print("Finished NOK")
       else:
+        pid_list = map(int, check_output(['pidof', 'mosquitto']).split())
+        for pid in pid_list:
+          process = Process(pid)
+          try:
+            process.send_signal(SIGINT)
+          except AccessDenied:
+            pass
         print("Finished OK,")
 
   def _launch_mosquitto(self, port: int) -> None:
