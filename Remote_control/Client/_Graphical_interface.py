@@ -585,11 +585,10 @@ class Graphical_interface(QMainWindow):
 
     self._timer.stop()
     self._thread.exit()
-    if not self._thread.wait(5000):
-      print("Forcing thread to stop")
+    sleep(0.1)
+    if not self._thread.isFinished():
       self._thread.terminate()
-    else:
-      print("Thread terminated gracefully")
+    print("Thread terminated")
 
   def closeEvent(self, event) -> None:
     """Re-writing the ``closeEvent`` handling so that it also stops the
