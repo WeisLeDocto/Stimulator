@@ -528,6 +528,11 @@ class Graphical_interface(QMainWindow):
             self._display_busy(-1)
             self._x_data.clear()
             self._y_data.clear()
+            if message == "Stopping the server and the MQTT broker":
+              sleep(2)
+              self._display_status("This interface will now stop !")
+              sleep(2)
+              self.close()
           self._waiting_for_answer = False
           self._answer_timer = 0
           self._disable_if_waiting()
