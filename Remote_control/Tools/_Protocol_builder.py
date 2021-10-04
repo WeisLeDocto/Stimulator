@@ -328,6 +328,8 @@ class Protocol_builder(QMainWindow):
       QDialogButtonBox.StandardButton(QDialogButtonBox.Save |
                                       QDialogButtonBox.Cancel))
     self._buttons.addButton("Show protocol", QDialogButtonBox.HelpRole)
+    self._load_button = self._buttons.addButton("Load protocol",
+                                                QDialogButtonBox.ActionRole)
 
     self._generalLayout.addLayout(self._fields_layout)
     self._generalLayout.addWidget(self._buttons)
@@ -379,6 +381,7 @@ class Protocol_builder(QMainWindow):
     self._buttons.rejected.connect(self.close)
     self._buttons.accepted.connect(self._save_protocol)
     self._buttons.helpRequested.connect(self._show_graphs)
+    self._load_button.clicked.connect(self._load_protocol)
 
   def _show_graphs(self) -> None:
     """Displays graphs for visualizing the current protocol."""
@@ -410,6 +413,75 @@ class Protocol_builder(QMainWindow):
       meth(*phase.values)
 
     self._protocol.plot_protocol()
+
+  def _load_protocol(self) -> None:
+    """Loads an existing protocol into the interface."""
+
+    # Listing the protocol files
+    try:
+      path = Path(__file__).parent.parent
+      protocol_list = Path.iterdir(path / "Protocols")
+    except FileNotFoundError:
+      mes_box = QMessageBox(QMessageBox.Warning,
+                            "Warning !",
+                            "No protocol to load found !")
+      mes_box.setStandardButtons(QMessageBox.Ok)
+      mes_box.exec()
+      return
+
+    # Considering only the right files
+    items = [protocol.name.replace("Protocol_", "").replace(".py", "")
+             for protocol in protocol_list
+             if protocol.name.startswith("Protocol")]
+
+    if not items:
+      mes_box = QMessageBox(QMessageBox.Warning,
+                            "Warning !",
+                            "No protocol to load found !")
+      mes_box.setStandardButtons(QMessageBox.Ok)
+      mes_box.exec()
+      return
+
+    # Item selection
+    item, ok = QInputDialog.getItem(self,
+                                    "Protocol selection",
+                                    "Please select the protocol to load :",
+                                    items,
+                                    0,
+                                    False)
+
+    if not ok:
+      return
+
+    # Clearing the current protocol before loading
+    self._list_elec.clear()
+    self._list_mecha.clear()
+
+    protocol = []
+    item = "Protocol_" + item + ".py"
+    with open(path / "Protocols" / item, 'r') as protocol_file:
+      for line in protocol_file:
+        protocol.append(line)
+
+    protocol = [line.replace("new_prot.", "").replace(")\n", "").split('(')
+                for line in protocol if line.startswith("new_prot.")]
+
+    for phase in protocol:
+      phase: List[Union[str, List[str]]]
+      if phase[0] in ['add_electrical_stimulation', 'add_electrical_rest']:
+        phase[0] = phase[0].capitalize().replace('_', ' ')
+        phase[1] = list(literal_eval(phase[1]) if
+                        isinstance(literal_eval(phase[1]), tuple)
+                        else (literal_eval(phase[1]),))
+        self._list_elec.addItem(Phase(phase[0], phase[1]))
+      else:
+        phase[0] = phase[0].capitalize().replace('_', ' ').replace('steady',
+                                                                   '(steady)').\
+          replace('progressive', '(progressive)')
+        phase[1] = list(literal_eval(phase[1]) if
+                        isinstance(literal_eval(phase[1]), tuple)
+                        else (literal_eval(phase[1]),))
+        self._list_mecha.addItem(Phase(phase[0], phase[1]))
 
   def _save_protocol(self):
     """Saves the current protocol to the Protocols/ directory."""
