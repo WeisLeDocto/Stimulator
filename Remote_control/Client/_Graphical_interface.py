@@ -22,7 +22,7 @@ from pyqtgraph import mkPen
 from pyqtgraph import AxisItem
 
 
-devices = {'Green Stimulator': 'proxy-kormusc.kulak.be',
+devices = {'Green Stimulator': '10.36.184.1',
            'Beige Stimulator': '10.36.191.44'}
 
 
