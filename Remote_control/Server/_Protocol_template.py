@@ -1,6 +1,47 @@
 # coding: utf-8
 
 import crappy
+import RPi.GPIO as GPIO
+
+
+class Led_drive(crappy.inout.InOut):
+
+  def __init__(self, pin_green: int, pin_orange: int, pin_red: int) -> None:
+    super().__init__()
+    for pin in [pin_green, pin_orange, pin_red]:
+      if pin not in range(2, 28):
+        raise ValueError('pin {} should be an integer between '
+                         '2 and 28'.format(pin))
+    self.pin_green = pin_green
+    self.pin_orange = pin_orange
+    self.pin_red = pin_red
+
+  def open(self) -> None:
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(self.pin_green, GPIO.OUT)
+    GPIO.setup(self.pin_orange, GPIO.OUT)
+    GPIO.setup(self.pin_red, GPIO.OUT)
+
+  def set_cmd(self, cmd: int) -> None:
+    if cmd not in [0, 1, 2]:
+      cmd = 2
+    if cmd == 0:
+      GPIO.output(self.pin_green, GPIO.HIGH)
+      GPIO.output(self.pin_orange, GPIO.LOW)
+      GPIO.output(self.pin_red, GPIO.LOW)
+    elif cmd == 1:
+      GPIO.output(self.pin_green, GPIO.LOW)
+      GPIO.output(self.pin_orange, GPIO.HIGH)
+      GPIO.output(self.pin_red, GPIO.LOW)
+    elif cmd == 2:
+      GPIO.output(self.pin_green, GPIO.LOW)
+      GPIO.output(self.pin_orange, GPIO.LOW)
+      GPIO.output(self.pin_red, GPIO.HIGH)
+
+  @staticmethod
+  def close() -> None:
+    GPIO.cleanup()
+
 
 labels = []
 to_send = []
