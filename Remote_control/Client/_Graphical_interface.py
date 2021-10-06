@@ -524,7 +524,8 @@ class Graphical_interface(QMainWindow):
         if message is not None:
           self._display_status(message)
           if message in ["Protocol terminated gracefully",
-                         "Stopping the server and the MQTT broker"]:
+                         "Stopping the server and the MQTT broker",
+                         "Protocol terminated with an error"]:
             self._display_busy(-1)
             self._x_data.clear()
             self._y_data.clear()
