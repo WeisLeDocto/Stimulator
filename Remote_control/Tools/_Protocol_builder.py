@@ -385,11 +385,13 @@ class Protocol_builder(QMainWindow):
       return
 
     # Considering only the right files
-    items = [protocol.name.replace("Protocol_", "").replace(".py", "")
-             for protocol in protocol_list
-             if protocol.name.startswith("Protocol")]
-
-    if not items:
+    try:
+      items = [protocol.name.replace("Protocol_", "").replace(".py", "")
+               for protocol in protocol_list
+               if protocol.name.startswith("Protocol")]
+      if not items:
+        raise FileNotFoundError
+    except FileNotFoundError:
       mes_box = QMessageBox(QMessageBox.Warning,
                             "Warning !",
                             "No protocol to load found !")
