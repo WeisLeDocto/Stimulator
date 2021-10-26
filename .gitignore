@@ -129,5 +129,6 @@ dmypy.json
 .pyre/
 
 # Protocol files
+.idea/
 Remote_control/Protocols/
 Protocol.py
