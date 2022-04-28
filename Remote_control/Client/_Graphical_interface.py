@@ -28,7 +28,8 @@ else:
 
 
 devices = {'Green Stimulator': '10.36.184.1',
-           'Beige Stimulator': '10.36.191.44'}
+           'Beige Stimulator': '10.36.191.44',
+           'Local Stimulator': '127.0.0.1'}
 
 
 class Timer(QObject):
