@@ -17,9 +17,14 @@ from PyQt5.QtCore import QThread
 from PyQt5.QtCore import QObject
 from PyQt5.QtCore import QSize
 
-from pyqtgraph import PlotWidget
-from pyqtgraph import mkPen
-from pyqtgraph import AxisItem
+try:
+  from pyqtgraph import PlotWidget
+  from pyqtgraph import mkPen
+  from pyqtgraph import AxisItem
+except (Exception,):
+  graph_flag = False
+else:
+  graph_flag = True
 
 
 devices = {'Green Stimulator': '10.36.184.1',
@@ -77,6 +82,8 @@ class Graphical_interface(QMainWindow):
     self._request_protocol_list = False
     self._address = None
 
+    self._display_graph = graph_flag
+
   def __call__(self) -> None:
     """Creates and displays the interface."""
 
@@ -87,9 +94,10 @@ class Graphical_interface(QMainWindow):
 
     self._set_connections()
 
-    self._x_data = []
-    self._y_data = []
-    self._curve = self._graph.plot(self._x_data, self._y_data, pen=mkPen('k'))
+    if self._display_graph:
+      self._x_data = []
+      self._y_data = []
+      self._curve = self._graph.plot(self._x_data, self._y_data, pen=mkPen('k'))
 
     delta_x = int((self._loop.app.desktop().availableGeometry().width() -
                   self.width()) / 2)
@@ -170,17 +178,18 @@ class Graphical_interface(QMainWindow):
     self._status_display = QLabel("")
     self._generalLayout.addWidget(self._status_display)
 
-    self._x_axis = AxisItem(orientation='bottom', pen=mkPen('k'),
-                            textPen=mkPen('k'))
-    self._y_axis = AxisItem(orientation='left', pen=mkPen('k'),
-                            textPen=mkPen('k'))
-    self._graph = PlotWidget(parent=self._centralWidget, background=None,
-                             axisItems={'bottom': self._x_axis,
-                                        'left': self._y_axis},
-                             labels={'bottom': 't(s)',
-                                     'left': 'position (mm)'},
-                             title='Movable pin position')
-    self._generalLayout.addWidget(self._graph)
+    if self._display_graph:
+      self._x_axis = AxisItem(orientation='bottom', pen=mkPen('k'),
+                              textPen=mkPen('k'))
+      self._y_axis = AxisItem(orientation='left', pen=mkPen('k'),
+                              textPen=mkPen('k'))
+      self._graph = PlotWidget(parent=self._centralWidget, background=None,
+                               axisItems={'bottom': self._x_axis,
+                                          'left': self._y_axis},
+                               labels={'bottom': 't(s)',
+                                       'left': 'position (mm)'},
+                               title='Movable pin position')
+      self._generalLayout.addWidget(self._graph)
 
     self._is_busy_header = QLabel("Stimulator busy :")
     self._generalLayout.addWidget(self._is_busy_header)
@@ -436,13 +445,15 @@ class Graphical_interface(QMainWindow):
       except Empty:
         data = None
 
-      if data is not None:
+      if data is not None and self._display_graph:
         self._x_data.extend(data[0])
         self._y_data.extend(data[1])
         if len(self._x_data) > 1000:
           self._x_data = self._x_data[-1000:]
           self._y_data = self._y_data[-1000:]
-    self._curve.setData(self._x_data, self._y_data)
+
+    if self._display_graph:
+      self._curve.setData(self._x_data, self._y_data)
 
     # Updating the business status
     while not self._loop.is_busy_queue.empty():
@@ -479,8 +490,9 @@ class Graphical_interface(QMainWindow):
       self._display_if_connected(self._loop.is_connected)
       self._disable_if_connected(self._loop.is_connected)
       if not self._loop.is_connected:
-        self._x_data.clear()
-        self._y_data.clear()
+        if self._display_graph:
+          self._x_data.clear()
+          self._y_data.clear()
         self._display_busy(-1)
         self._protocol_list = []
 
@@ -505,8 +517,9 @@ class Graphical_interface(QMainWindow):
       if not self._loop.is_connected:
         self._display_status("Error ! Disconnected while waiting for an "
                              "answer")
-        self._x_data.clear()
-        self._y_data.clear()
+        if self._display_graph:
+          self._x_data.clear()
+          self._y_data.clear()
         self._display_busy(-1)
         self._protocol_list = []
         self._waiting_for_answer = False
@@ -527,8 +540,9 @@ class Graphical_interface(QMainWindow):
                          "Stopping the server and the MQTT broker",
                          "Protocol terminated with an error"]:
             self._display_busy(-1)
-            self._x_data.clear()
-            self._y_data.clear()
+            if self._display_graph:
+              self._x_data.clear()
+              self._y_data.clear()
             if message == "Stopping the server and the MQTT broker":
               sleep(2)
               self._display_status("This interface will now stop !")
