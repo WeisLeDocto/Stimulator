@@ -82,30 +82,25 @@ class Graphical_interface(QMainWindow):
     self._protocol_to_download = None
     self._request_protocol_list = False
     self._address = None
+    self._device = None
+
+    self._protocols_path = Path(__file__).parent.parent / "Protocols"
 
     self._display_graph = graph_flag
+    if self._display_graph:
+      self._x_data = []
+      self._y_data = []
 
   def __call__(self) -> None:
     """Creates and displays the interface."""
 
     self._set_layout()
+    self.show()
 
     self._display_if_connected(self._loop.is_connected)
     self._disable_if_connected(self._loop.is_connected)
 
     self._set_connections()
-
-    if self._display_graph:
-      self._x_data = []
-      self._y_data = []
-      self._curve = self._graph.plot(self._x_data, self._y_data, pen=mkPen('k'))
-
-    delta_x = int((self._loop.app.desktop().availableGeometry().width() -
-                  self.width()) / 2)
-    delta_y = int((self._loop.app.desktop().availableGeometry().height() -
-                  self.height()) / 2)
-    self.move(delta_x, delta_y)
-    self.show()
 
     self._start_thread()
 
@@ -198,6 +193,15 @@ class Graphical_interface(QMainWindow):
     self._is_busy_status_display = QLabel("")
     self._generalLayout.addWidget(self._is_busy_status_display)
 
+    delta_x = int((self._loop.app.desktop().availableGeometry().width() -
+                   self.width()) / 2)
+    delta_y = int((self._loop.app.desktop().availableGeometry().height() -
+                   self.height()) / 2)
+    self.move(delta_x, delta_y)
+
+    if self._display_graph:
+      self._curve = self._graph.plot(self._x_data, self._y_data, pen=mkPen('k'))
+
   def _set_connections(self) -> None:
     """Sets the actions to perform when interacting with the widgets."""
 
@@ -221,38 +225,39 @@ class Graphical_interface(QMainWindow):
     self._stop_server_button.clicked.connect(
       partial(self._send_server, self._stop_server_button.text()))
 
-  def _display_if_connected(self, bool_: bool) -> None:
+  def _display_if_connected(self, connected: bool) -> None:
     """Displays the connection status.
 
     Args:
-      bool_: :obj:`True` if connected to the server, else :obj:`False`.
+      connected: :obj:`True` if connected to the server, else :obj:`False`.
     """
 
-    if bool_:
-      dev = [dev for dev in devices if devices[dev] == self._address][0]
-      self._is_connected_display.setText("Connected to the " + str(dev))
+    if connected:
+      self._is_connected_display.setText("Connected to the " +
+                                         str(self._device))
       self._connection_status_display.setText("")
       self._is_connected_display.setStyleSheet("color: black;")
+
     else:
       self._is_connected_display.setText("Not connected")
       self._is_connected_display.setStyleSheet("color: red;")
 
-  def _disable_if_connected(self, bool_: bool) -> None:
+  def _disable_if_connected(self, connected: bool) -> None:
     """Disables the interaction buttons when not connected to the client.
 
     Args:
-      bool_: :obj:`True` if connected to the server, else :obj:`False`.
+      connected: :obj:`True` if connected to the server, else :obj:`False`.
     """
 
-    self._connect_button.setEnabled(not bool_)
-    self._upload_protocol_button.setEnabled(bool_)
-    self._download_protocol_button.setEnabled(bool_)
-    self._status_button.setEnabled(bool_)
-    self._start_protocol_button.setEnabled(bool_)
-    self._stop_protocol_button.setEnabled(bool_)
-    self._stop_server_button.setEnabled(bool_)
-    self._is_busy_header.setEnabled(bool_)
-    self._is_busy_status_display.setEnabled(bool_)
+    self._connect_button.setEnabled(not connected)
+    self._upload_protocol_button.setEnabled(connected)
+    self._download_protocol_button.setEnabled(connected)
+    self._status_button.setEnabled(connected)
+    self._start_protocol_button.setEnabled(connected)
+    self._stop_protocol_button.setEnabled(connected)
+    self._stop_server_button.setEnabled(connected)
+    self._is_busy_header.setEnabled(connected)
+    self._is_busy_status_display.setEnabled(connected)
 
   def _disable_if_waiting(self) -> None:
     """Disables the interaction buttons when waiting for an answer from the
@@ -273,6 +278,7 @@ class Graphical_interface(QMainWindow):
     """
 
     self._status_display.setText(status)
+
     if status.startswith("Error !"):
       self._status_display.setStyleSheet("color: red;")
     else:
@@ -291,22 +297,25 @@ class Graphical_interface(QMainWindow):
     if status == 0:
       self._is_busy_status_display.setText("Not currently stimulating")
       self._is_busy_status_display.setStyleSheet("color: green;")
+
     elif status == 1:
       self._is_busy_status_display.setText("Stimulation starting soon !")
       self._is_busy_status_display.setStyleSheet("color: orange;")
+
     elif status == 2:
       self._is_busy_status_display.setText("Stimulating ! Do not unplug")
       self._is_busy_status_display.setStyleSheet("color: red;")
+
     elif status == -1:
       self._is_busy_status_display.setText("")
       self._is_busy_status_display.setStyleSheet("color: black;")
+
     else:
       self._is_busy_status_display.setText("Error ! Wrong status value "
                                            "received")
       self._is_busy_status_display.setStyleSheet("color: red;")
 
-  @staticmethod
-  def _save_protocol(protocol: list, name: str) -> None:
+  def _save_protocol(self, protocol: list, name: str) -> None:
     """Saves a protocol received from the server in the Protocols/ directory.
 
     Args:
@@ -315,17 +324,17 @@ class Graphical_interface(QMainWindow):
       name: The name of the protocol.
     """
 
-    path = Path(__file__).parent.parent
-    if not Path.exists(path / "Protocols"):
-      Path.mkdir(path / "Protocols")
-      with open(path / "Protocols" / "__init__.py", 'w') as init_file:
+    if not Path.exists(self._protocols_path):
+      Path.mkdir(self._protocols_path)
+
+      with open(self._protocols_path / "__init__.py", 'w') as init_file:
         init_file.write("# coding: utf-8" + "\n")
         init_file.write("\n")
         init_file.write(
           "from .Protocol_" + name + " import Led, Mecha, Elec"
           + "\n")
 
-    with open(path / "Protocols" / ("Protocol_" + name + ".py"), 'w') as \
+    with open(self._protocols_path / ("Protocol_" + name + ".py"), 'w') as \
          protocol_file:
       for line in protocol:
         protocol_file.write(line)
@@ -354,8 +363,7 @@ class Graphical_interface(QMainWindow):
 
     elif message == "Upload protocol":
       try:
-        path = Path(__file__).parent.parent
-        protocol_list = Path.iterdir(path / "Protocols")
+        protocol_list = Path.iterdir(self._protocols_path)
       except FileNotFoundError:
         self._display_status("Error ! No protocol found. Please create one")
         return
@@ -381,7 +389,7 @@ class Graphical_interface(QMainWindow):
       message += " " + password
 
       protocol = []
-      with open(path / "Protocols" / ("Protocol_" + item + ".py"), 'r') \
+      with open(self._protocols_path / ("Protocol_" + item + ".py"), 'r') \
            as protocol_file:
         for line in protocol_file:
           protocol.append(line)
@@ -457,15 +465,16 @@ class Graphical_interface(QMainWindow):
       self._curve.setData(self._x_data, self._y_data)
 
     # Updating the business status
+    busy = None
     while not self._loop.is_busy_queue.empty():
       try:
         busy = self._loop.is_busy_queue.get_nowait()
       except Empty:
-        busy = None
+        pass
 
-      if busy is not None and busy != self._busy:
-        self._busy = busy
-        self._display_busy(busy[0][0])
+    if busy is not None and busy != self._busy:
+      self._busy = busy
+      self._display_busy(busy[0][0])
 
     # Receiving the protocol list
     while not self._loop.protocol_list_queue.empty():
@@ -476,11 +485,12 @@ class Graphical_interface(QMainWindow):
         pass
 
     # Downloading protocol
+    protocol = None
     while not self._loop.protocol_queue.empty():
       try:
         protocol = self._loop.protocol_queue.get_nowait()
       except Empty:
-        protocol = None
+        pass
 
       if protocol is not None and self._protocol_to_download is not None:
         self._save_protocol(protocol, self._protocol_to_download)
@@ -503,14 +513,16 @@ class Graphical_interface(QMainWindow):
         return
 
       # Getting new messages from the server
+      message = None
       if not self._loop.answer_queue.empty():
         try:
           message = self._loop.answer_queue.get_nowait()
         except Empty:
-          message = None
+          pass
 
-        if message is not None:
-          self._display_status(message)
+      if message is not None:
+        self._display_status(message)
+
     else:
       # Checking if disconnected
       self._display_if_connected(self._loop.is_connected)
@@ -576,6 +588,7 @@ class Graphical_interface(QMainWindow):
       if not ok:
         return
       self._address = devices[item]
+      self._device = item
 
     self._connection_status_display.setText(
         self._loop.connect_to_broker(address=self._address))
