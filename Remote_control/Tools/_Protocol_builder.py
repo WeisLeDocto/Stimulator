@@ -82,8 +82,10 @@ class Param_dialog(QDialog):
         self.field_list[-1].setValidator(double_validator)
         if prev is not None:
           self.field_list[-1].setText(str(prev).replace('.', ','))
-      elif isinstance(self.field_list[-1], QSpinBox) and prev is not None:
-        self.field_list[-1].setValue(prev)
+      elif isinstance(self.field_list[-1], QSpinBox):
+        self.field_list[-1].setMaximum(9999)
+        if prev is not None:
+          self.field_list[-1].setValue(prev)
       center_layout.addWidget(self.field_list[-1])
       right_layout.addWidget(self.validation_list[-1])
 
