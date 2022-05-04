@@ -9,6 +9,11 @@ from subprocess import Popen, TimeoutExpired, check_output
 from pathlib import Path
 from signal import SIGINT
 from psutil import Process, AccessDenied
+from sys import path
+from importlib import reload
+
+path.append(str(Path(__file__).parent.parent.parent / "Protocols"))
+import Protocols
 
 
 class DaemonStop(Exception):
@@ -80,7 +85,7 @@ class Daemon_run:
     self._client.reconnect_delay_set(max_delay=10)
 
     self._base_path = Path(__file__).parent.parent
-    self._protocols_path = self._base_path / 'Protocols'
+    self._protocols_path = self._base_path.parent / 'Protocols'
     self._protocol_path = self._base_path.parent / "Protocol.py"
 
     self._protocol = None
@@ -353,7 +358,8 @@ class Daemon_run:
     """Writes the ``Protocol.py`` file using the generator lists and the
     ``_Protocol_template.py`` file."""
 
-    from ..Protocols import Led, Mecha, Elec
+    reload(Protocols)
+    from Protocols import Led, Mecha, Elec
     with open(self._protocol_path, 'w') as executable_file:
       executable_file.write('# coding: utf-8' + "\n")
       executable_file.write("\n")

@@ -84,7 +84,7 @@ class Graphical_interface(QMainWindow):
     self._address = None
     self._device = None
 
-    self._protocols_path = Path(__file__).parent.parent / "Protocols"
+    self._protocols_path = Path(__file__).parent.parent.parent / "Protocols"
 
     self._display_graph = graph_flag
     if self._display_graph:

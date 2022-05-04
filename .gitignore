@@ -130,5 +130,5 @@ dmypy.json
 
 # Protocol files
 .idea/
-Remote_control/Protocols/
+Protocols/
 Protocol.py

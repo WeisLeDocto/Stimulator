@@ -350,7 +350,7 @@ class Protocol_phases:
 
     self.py_file = ["# coding: utf-8" + "\n",
                     "\n",
-                    "from ..Tools import Protocol_phases" + "\n",
+                    "from Remote_control.Tools import Protocol_phases" + "\n",
                     "\n",
                     "new_prot = Protocol_phases()" + "\n",
                     "\n"
