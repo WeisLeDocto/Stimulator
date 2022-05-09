@@ -300,16 +300,16 @@ class Protocol_phases:
     for _ in range(number_of_sets):
       self._elec_stimu.append(
         {'type': 'cyclic',
-         'value1': 1, 'condition1': 'delay={}'.format(
+         'value1': 0, 'condition1': 'delay={}'.format(
           delay_between_pulses_seconds - pulse_duration_seconds),
-         'value2': 0,
+         'value2': 1,
          'condition2': 'delay={}'.format(pulse_duration_seconds),
          'cycles': pulses_per_set})
       self._elec_stimu_on.append((set_duration_minutes * 60, True))
       self._elec_stimu.append(
         {'type': 'constant',
          'condition': 'delay={}'.format(rest_between_sets_minutes * 60),
-         'value': 1})
+         'value': 0})
       self._elec_stimu_on.append((rest_between_sets_minutes * 60, False))
 
     self.py_file.extend("new_prot.add_electrical_stimulation({}, {}, {}, {}, "
@@ -332,7 +332,7 @@ class Protocol_phases:
     self._elec_stimu.append(
       {'type': 'constant',
        'condition': 'delay={}'.format(rest_duration_hours * 60 * 60),
-       'value': 1})
+       'value': 0})
     self._elec_stimu_on.append((rest_duration_hours * 60 * 60, False))
 
     self.py_file.extend("new_prot.add_electrical_rest({})".
