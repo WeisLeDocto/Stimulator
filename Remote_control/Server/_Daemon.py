@@ -12,19 +12,20 @@ from psutil import Process, AccessDenied
 from sys import path
 from importlib import reload
 
+from ..__paths__ import base_path, protocols_path
+
 # Preparing the import of the Protocols module
-base_path = Path(__file__).parent.parent.parent
-path.append(str(base_path))
+path.append(str(base_path.parent))
 
 # Creating the module if it does not already exist
-if not Path.exists(base_path / "Protocols") or not Path.exists(
-      base_path / "Protocols" / "__init__.py"):
+if not Path.exists(protocols_path) or not Path.exists(
+      protocols_path / "__init__.py"):
 
   # First create the folder
-  Path.mkdir(base_path / "Protocols", exist_ok=True)
+  Path.mkdir(protocols_path, exist_ok=True)
 
   # Then create the __init__.py file
-  with open(base_path / "Protocols" / "__init__.py", 'w') as init_file:
+  with open(protocols_path / "__init__.py", 'w') as init_file:
     init_file.write("# coding: utf-8\n")
 
 # Finally, importing the module
@@ -99,9 +100,7 @@ class Daemon_run:
     self._client.on_message = self._on_message
     self._client.reconnect_delay_set(max_delay=10)
 
-    self._base_path = Path(__file__).parent.parent
-    self._protocols_path = self._base_path.parent / 'Protocols'
-    self._protocol_path = self._base_path.parent / "Protocol.py"
+    self._protocol_path = base_path.parent / "Protocol.py"
 
     self._protocol = None
 
@@ -283,7 +282,7 @@ class Daemon_run:
     """Sends the clients the list of protocols in the Protocols/ folder"""
 
     try:
-      protocol_list = Path.iterdir(self._protocols_path)
+      protocol_list = Path.iterdir(protocols_path)
       protocols = [protocol.name.replace("Protocol_", "").replace(".py", "")
                    for protocol in protocol_list if
                    protocol.name.startswith("Protocol")]
@@ -304,7 +303,7 @@ class Daemon_run:
       name: The name of the protocol to send.
     """
 
-    with open(self._protocols_path / ("Protocol_" + name + ".py"),
+    with open(protocols_path / ("Protocol_" + name + ".py"),
               'r') as protocol_file:
       protocol = list(protocol_file)
 
@@ -327,7 +326,7 @@ class Daemon_run:
         server.
     """
 
-    with open(self._base_path / "password.txt", 'r') as password_file:
+    with open(base_path / "password.txt", 'r') as password_file:
       password = password_file.read()
     if p_word != password:
       self._publish("Error ! Wrong password")
@@ -336,7 +335,7 @@ class Daemon_run:
     try:
       protocol = self._protocol_queue.get(timeout=5)
 
-      with open(self._protocols_path / ("Protocol_" + name + ".py"),
+      with open(protocols_path / ("Protocol_" + name + ".py"),
                 'w') as protocol_file:
         for line in protocol:
           protocol_file.write(line)
@@ -345,7 +344,8 @@ class Daemon_run:
     except Empty:
       self._publish("Error ! No protocol received")
 
-  def _choose_protocol(self, protocol: str) -> None:
+  @ staticmethod
+  def _choose_protocol(protocol: str) -> None:
     """Chooses the right protocol to start.
 
     Overwrites the ``__init__.py`` file in the Protocols/ folder so that the
@@ -355,11 +355,11 @@ class Daemon_run:
       protocol: The name of the protocol to choose.
     """
 
-    with open(self._protocols_path / "__init__.py", 'w') as init_file:
-      init_file.write("# coding: utf-8" + "\n")
-      init_file.write("\n")
-      init_file.write("from .Protocol_" + protocol + " import Led, Mecha, Elec"
-                      + "\n")
+    with open(protocols_path / "__init__.py", 'w') as init:
+      init.write("# coding: utf-8" + "\n")
+      init.write("\n")
+      init.write("from .Protocol_" + protocol + " import Led, Mecha, Elec"
+                 + "\n")
 
   def _write_protocol(self):
     """Writes the ``Protocol.py`` file using the generator lists and the
@@ -367,6 +367,7 @@ class Daemon_run:
 
     reload(Protocols)
     from Protocols import Led, Mecha, Elec
+
     with open(self._protocol_path, 'w') as executable_file:
       executable_file.write('# coding: utf-8' + "\n")
       executable_file.write("\n")
@@ -386,7 +387,7 @@ class Daemon_run:
         executable_file.write(str(dic) + "," + "\n")
       executable_file.write("]" + "\n")
 
-      with open(self._base_path / "Server" / "_Protocol_template.py",
+      with open(base_path / "Server" / "_Protocol_template.py",
                 'r') as template:
         for line in template:
           if "#" not in line:

@@ -26,6 +26,8 @@ except (Exception,):
 else:
   graph_flag = True
 
+from ..__paths__ import protocols_path
+
 
 devices = {'Green Stimulator': '10.36.184.1',
            'Beige Stimulator': '10.36.191.44',
@@ -83,8 +85,6 @@ class Graphical_interface(QMainWindow):
     self._request_protocol_list = False
     self._address = None
     self._device = None
-
-    self._protocols_path = Path(__file__).parent.parent.parent / "Protocols"
 
     self._display_graph = graph_flag
     if self._display_graph:
@@ -315,7 +315,8 @@ class Graphical_interface(QMainWindow):
                                            "received")
       self._is_busy_status_display.setStyleSheet("color: red;")
 
-  def _save_protocol(self, protocol: list, name: str) -> None:
+  @ staticmethod
+  def _save_protocol(protocol: list, name: str) -> None:
     """Saves a protocol received from the server in the Protocols/ directory.
 
     Args:
@@ -324,17 +325,17 @@ class Graphical_interface(QMainWindow):
       name: The name of the protocol.
     """
 
-    if not Path.exists(self._protocols_path):
-      Path.mkdir(self._protocols_path)
+    if not Path.exists(protocols_path):
+      Path.mkdir(protocols_path)
 
-      with open(self._protocols_path / "__init__.py", 'w') as init_file:
+      with open(protocols_path / "__init__.py", 'w') as init_file:
         init_file.write("# coding: utf-8" + "\n")
         init_file.write("\n")
         init_file.write(
           "from .Protocol_" + name + " import Led, Mecha, Elec"
           + "\n")
 
-    with open(self._protocols_path / ("Protocol_" + name + ".py"), 'w') as \
+    with open(protocols_path / ("Protocol_" + name + ".py"), 'w') as \
          protocol_file:
       for line in protocol:
         protocol_file.write(line)
@@ -363,7 +364,7 @@ class Graphical_interface(QMainWindow):
 
     elif message == "Upload protocol":
       try:
-        protocol_list = Path.iterdir(self._protocols_path)
+        protocol_list = Path.iterdir(protocols_path)
       except FileNotFoundError:
         self._display_status("Error ! No protocol found. Please create one")
         return
@@ -389,7 +390,7 @@ class Graphical_interface(QMainWindow):
       message += " " + password
 
       protocol = []
-      with open(self._protocols_path / ("Protocol_" + item + ".py"), 'r') \
+      with open(protocols_path / ("Protocol_" + item + ".py"), 'r') \
            as protocol_file:
         for line in protocol_file:
           protocol.append(line)

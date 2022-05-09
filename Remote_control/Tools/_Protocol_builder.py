@@ -26,6 +26,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QDoubleValidator
 
+from ..__paths__ import protocols_path
+
 
 class Param_dialog(QDialog):
   """A class for displaying a window allowing the user to choose the parameters
@@ -164,8 +166,6 @@ class Protocol_builder(QMainWindow):
     """
 
     super().__init__()
-
-    self._protocols_path = Path(__file__).parent.parent.parent / "Protocols"
 
     self._app = app
     self._protocol = Protocol_phases()
@@ -380,7 +380,7 @@ class Protocol_builder(QMainWindow):
 
     # Listing the protocol files
     try:
-      protocol_list = Path.iterdir(self._protocols_path)
+      protocol_list = Path.iterdir(protocols_path)
     except FileNotFoundError:
       mes_box = QMessageBox(QMessageBox.Warning,
                             "Warning !",
@@ -421,7 +421,7 @@ class Protocol_builder(QMainWindow):
 
     protocol = []
     item = "Protocol_" + item + ".py"
-    with open(self._protocols_path / item, 'r') as protocol_file:
+    with open(protocols_path / item, 'r') as protocol_file:
       for line in protocol_file:
         protocol.append(line)
 
@@ -482,17 +482,17 @@ class Protocol_builder(QMainWindow):
 
     # Actually writing the protocol .py file
     if ok:
-      if not Path.exists(self._protocols_path):
-        Path.mkdir(self._protocols_path)
-        with open(self._protocols_path / "__init__.py", 'w') as init_file:
+      if not Path.exists(protocols_path):
+        Path.mkdir(protocols_path)
+        with open(protocols_path / "__init__.py", 'w') as init_file:
           init_file.write("# coding: utf-8" + "\n")
           init_file.write("\n")
           init_file.write(
             "from .Protocol_" + name + " import Led, Mecha, Elec"
             + "\n")
 
-      with open(self._protocols_path / ("Protocol_" + name +
-                                        ".py"), 'w') as exported_file:
+      with open(protocols_path /
+                ("Protocol_" + name + ".py"), 'w') as exported_file:
         for line in self._protocol.py_file:
           exported_file.write(line)
 
