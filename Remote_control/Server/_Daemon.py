@@ -205,7 +205,24 @@ class Daemon_run:
     stopped.
     """
 
+    is_active = False
     while True:
+
+      # If the protocol ended, tell the clients
+      if is_active and not self._is_protocol_active:
+        is_active = False
+
+        # Sending the results to the clients
+        if self._protocol.poll() == 0:
+          print("Protocol terminated gracefully")
+          self._publish("Protocol terminated gracefully")
+        else:
+          print("Protocol terminated with an error")
+          self._publish("Protocol terminated with an error")
+
+      elif self._is_protocol_active and not is_active:
+        is_active = True
+
       # Getting the command message and executing the associated action
       if not self._message_queue.empty():
         try:

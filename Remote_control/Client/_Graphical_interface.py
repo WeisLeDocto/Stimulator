@@ -522,6 +522,13 @@ class Graphical_interface(QMainWindow):
 
       if message is not None:
         self._display_status(message)
+        # In case the protocol stops while the interface is running
+        if message in ["Protocol terminated gracefully",
+                       "Protocol terminated with an error"]:
+          self._display_busy(-1)
+          if self._display_graph:
+            self._x_data.clear()
+            self._y_data.clear()
 
     else:
       # Checking if disconnected
