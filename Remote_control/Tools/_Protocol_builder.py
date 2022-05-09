@@ -47,8 +47,6 @@ class Param_dialog(QDialog):
 
     super().__init__(parent=parent)
 
-    self._protocols_path = Path(__file__).parent.parent.parent / "Protocols"
-
     self.setWindowTitle("Phase parameters")
     main_layout = QVBoxLayout()
     self.setLayout(main_layout)
@@ -166,6 +164,9 @@ class Protocol_builder(QMainWindow):
     """
 
     super().__init__()
+
+    self._protocols_path = Path(__file__).parent.parent.parent / "Protocols"
+
     self._app = app
     self._protocol = Protocol_phases()
 
