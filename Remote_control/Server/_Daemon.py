@@ -12,7 +12,22 @@ from psutil import Process, AccessDenied
 from sys import path
 from importlib import reload
 
-path.append(str(Path(__file__).parent.parent.parent / "Protocols"))
+# Preparing the import of the Protocols module
+base_path = Path(__file__).parent.parent.parent
+path.append(str(base_path))
+
+# Creating the module if it does not already exist
+if not Path.exists(base_path / "Protocols") or not Path.exists(
+      base_path / "Protocols" / "__init__.py"):
+
+  # First create the folder
+  Path.mkdir(base_path / "Protocols", exist_ok=True)
+
+  # Then create the __init__.py file
+  with open(base_path / "Protocols" / "__init__.py", 'w') as init_file:
+    init_file.write("# coding: utf-8\n")
+
+# Finally, importing the module
 import Protocols
 
 
@@ -320,15 +335,6 @@ class Daemon_run:
 
     try:
       protocol = self._protocol_queue.get(timeout=5)
-
-      if not Path.exists(self._protocols_path):
-        Path.mkdir(self._protocols_path)
-
-        with open(self._protocols_path / "__init__.py", 'w') as init_file:
-          init_file.write("# coding: utf-8" + "\n")
-          init_file.write("\n")
-          init_file.write("from .Protocol_" + name + " import Led, Mecha, Elec"
-                          + "\n")
 
       with open(self._protocols_path / ("Protocol_" + name + ".py"),
                 'w') as protocol_file:
