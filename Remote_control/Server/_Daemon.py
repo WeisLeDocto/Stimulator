@@ -112,7 +112,6 @@ class Daemon_run:
         sleep(1)
 
     self._client.loop_start()
-    print("Started Mosquitto")
 
   def __call__(self) -> None:
     """Starts the protocol manager, ad manages the exit of the program.
@@ -121,23 +120,19 @@ class Daemon_run:
     """
 
     try:
-      print("Starting manager")
       self._protocol_manager()
     except DaemonStop:
       self._publish("Stopping the server and the MQTT broker")
       sleep(3)
     finally:
-      print("Finishing")
       self._client.loop_stop()
       self._client.disconnect()
       if self._manage_broker:
         try:
           self._mosquitto.terminate()
           self._mosquitto.wait(timeout=15)
-          print("Finished OK, broker stopped")
         except TimeoutExpired:
           self._mosquitto.kill()
-          print("Finished NOK")
       else:
         pid_list = map(int, check_output(['pidof', 'mosquitto']).split())
         for pid in pid_list:
@@ -146,7 +141,6 @@ class Daemon_run:
             process.send_signal(SIGINT)
           except AccessDenied:
             pass
-        print("Finished OK,")
 
   def _launch_mosquitto(self, port: int) -> None:
     """Starts the mosquitto broker in a separate process.
@@ -173,7 +167,6 @@ class Daemon_run:
         self._protocol_queue.put_nowait(loads(message.payload))
     except UnpicklingError:
       self._publish("Warning ! Message raised UnpicklingError, ignoring it")
-    print("Got message")
 
   def _on_connect(self, *_, **__) -> None:
     """Callback executed when connecting to the broker.
@@ -183,7 +176,6 @@ class Daemon_run:
 
     self._client.subscribe(topic=self._topic_in, qos=2)
     self._client.subscribe(topic=self._topic_protocol_in, qos=2)
-    print("Subscribed")
     self._client.loop_start()
 
   def _publish(self, message: str) -> None:
@@ -214,10 +206,8 @@ class Daemon_run:
 
         # Sending the results to the clients
         if self._protocol.poll() == 0:
-          print("Protocol terminated gracefully")
           self._publish("Protocol terminated gracefully")
         else:
-          print("Protocol terminated with an error")
           self._publish("Protocol terminated with an error")
 
       elif self._is_protocol_active and not is_active:
@@ -231,28 +221,22 @@ class Daemon_run:
           continue
 
         if message == "Return protocol list":
-          print("Return protocol list")
           self._send_protocol_list()
 
         elif message == "Print status":
-          print("Print status")
           self._send_protocol_status()
 
         elif message.startswith("Upload protocol"):
-          print("Save protocol")
           self._save_protocol(*message.replace("Upload protocol ", "").
                               split(" "))
 
         elif message.startswith("Download protocol"):
-          print("Send protocol")
           self._send_protocol(message.replace("Download protocol ", ""))
 
         elif message.startswith("Start protocol"):
-          print("Start protocol")
           self._start_protocol(message.replace("Start protocol ", ""))
 
         elif message == "Stop protocol":
-          print("Stop protocol")
           self._stop_protocol()
 
         elif message == "Stop server":
@@ -443,7 +427,6 @@ class Daemon_run:
     """
 
     if not self._is_protocol_active:
-      print("No protocol currently running !")
       self._publish("No protocol currently running !")
 
     else:
@@ -463,14 +446,11 @@ class Daemon_run:
 
       # Sending the results to the clients
       if self._protocol.poll() is None:
-        print("Error ! Could not stop the protocol")
         self._publish("Error ! Could not stop the protocol")
         return 1
       elif self._protocol.poll() == 0:
-        print("Protocol terminated gracefully")
         self._publish("Protocol terminated gracefully")
       else:
-        print("Protocol terminated with an error")
         self._publish("Protocol terminated with an error")
 
     return 0
