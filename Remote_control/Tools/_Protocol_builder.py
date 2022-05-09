@@ -46,6 +46,9 @@ class Param_dialog(QDialog):
     """
 
     super().__init__(parent=parent)
+
+    self._protocols_path = Path(__file__).parent.parent.parent / "Protocols"
+
     self.setWindowTitle("Phase parameters")
     main_layout = QVBoxLayout()
     self.setLayout(main_layout)
@@ -376,8 +379,7 @@ class Protocol_builder(QMainWindow):
 
     # Listing the protocol files
     try:
-      path = Path(__file__).parent.parent
-      protocol_list = Path.iterdir(path / "Protocols")
+      protocol_list = Path.iterdir(self._protocols_path)
     except FileNotFoundError:
       mes_box = QMessageBox(QMessageBox.Warning,
                             "Warning !",
@@ -418,7 +420,7 @@ class Protocol_builder(QMainWindow):
 
     protocol = []
     item = "Protocol_" + item + ".py"
-    with open(path / "Protocols" / item, 'r') as protocol_file:
+    with open(self._protocols_path / item, 'r') as protocol_file:
       for line in protocol_file:
         protocol.append(line)
 
@@ -479,19 +481,17 @@ class Protocol_builder(QMainWindow):
 
     # Actually writing the protocol .py file
     if ok:
-      path = Path(__file__).parent.parent
-
-      if not Path.exists(path / "Protocols"):
-        Path.mkdir(path / "Protocols")
-        with open(path / "Protocols" / "__init__.py", 'w') as init_file:
+      if not Path.exists(self._protocols_path):
+        Path.mkdir(self._protocols_path)
+        with open(self._protocols_path / "__init__.py", 'w') as init_file:
           init_file.write("# coding: utf-8" + "\n")
           init_file.write("\n")
           init_file.write(
             "from .Protocol_" + name + " import Led, Mecha, Elec"
             + "\n")
 
-      with open(path / "Protocols" / ("Protocol_" + name +
-                                      ".py"), 'w') as exported_file:
+      with open(self._protocols_path / ("Protocol_" + name +
+                                        ".py"), 'w') as exported_file:
         for line in self._protocol.py_file:
           exported_file.write(line)
 
