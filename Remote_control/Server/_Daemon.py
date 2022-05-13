@@ -11,6 +11,8 @@ from signal import SIGINT
 from psutil import Process, AccessDenied
 from sys import path
 from importlib import reload
+from re import fullmatch, compile
+from typing import Optional
 
 from ..__paths__ import base_path, protocols_path
 
@@ -30,6 +32,25 @@ if not Path.exists(protocols_path) or not Path.exists(
 
 # Finally, importing the module
 import Protocols
+
+
+def get_protocol_name(file: Path) -> Optional[str]:
+  """Returns the name of the protocol located in a given .py file if it matches
+  the right syntax, else returns None."""
+
+  match = fullmatch(r'Protocol_(?P<name>.+)\.py', file.name)
+  return match.group('name') if match is not None else None
+
+
+msg_templates = {"Return list": compile(r'Return\sprotocol\slist'),
+                 "Print status": compile(r'Print\sstatus'),
+                 "Upload protocol": compile(r'Upload\sprotocol\s'
+                                            r'(?P<name>\S+)\s(?P<p_word>.+)'),
+                 "Download protocol": compile(r'Download\sprotocol\s'
+                                              r'(?P<name>.+)'),
+                 "Start protocol": compile(r'Start\sprotocol\s(?P<name>.+)'),
+                 "Stop protocol": compile(r'Stop\sprotocol'),
+                 "Stop server": compile(r'Stop\sserver')}
 
 
 class DaemonStop(Exception):
@@ -85,26 +106,36 @@ class Daemon_run:
 
     self._manage_broker = manage_broker
 
-    # Setting the topics and the queue
+    # Setting the MQTT topics
     self._topic_in = topic_in
     self._topic_out = topic_out
     self._topic_protocol_in = topic_protocol_in
     self._topic_protocol_out = topic_protocol_out
     self._topic_protocol_list = topic_protocol_list
+
+    self._msg_to_meth = {'Return list': self._send_protocol_list,
+                         'Print status': self._send_protocol_status,
+                         'Upload protocol': self._save_protocol,
+                         'Download protocol': self._send_protocol,
+                         'Start protocol': self._start_protocol,
+                         'Stop protocol': self._stop_protocol,
+                         'Stop server': self._stop_server}
+
+    # Queues for receiving commands
     self._message_queue = Queue()
     self._protocol_queue = Queue()
 
-    # Setting the mqtt client
+    # Setting the MQTT client
     self._client = Client(str(time()))
     self._client.on_connect = self._on_connect
     self._client.on_message = self._on_message
     self._client.reconnect_delay_set(max_delay=10)
 
+    # Protocol-related attributes
     self._protocol_path = base_path.parent / "Protocol.py"
-
     self._protocol = None
 
-    # Starting the mosquitto broker
+    # Starting the mosquitto broker if required
     if self._manage_broker:
       self._launch_mosquitto(port)
       sleep(5)
@@ -128,25 +159,35 @@ class Daemon_run:
     self._client.loop_start()
 
   def __call__(self) -> None:
-    """Starts the protocol manager, ad manages the exit of the program.
+    """Starts the protocol manager, and manages the exit of the program.
 
     When exiting stops any running protocol and then stops the broker.
     """
 
+    # Runs the main loop
     try:
       self._protocol_manager()
+
+    # Tells the clients that the sever is stopping
     except DaemonStop:
       self._publish("Stopping the server and the MQTT broker")
-      sleep(3)
+      # Allowing time for the broker to send the exit message
+      sleep(1)
+
     finally:
+      # Stopping the client loop
       self._client.loop_stop()
       self._client.disconnect()
+
+      # If we started the broker process, terminating it
       if self._manage_broker:
         try:
           self._mosquitto.terminate()
           self._mosquitto.wait(timeout=15)
         except TimeoutExpired:
           self._mosquitto.kill()
+
+      # Also try to terminate it anyway if we didn't start it
       else:
         pid_list = map(int, check_output(['pidof', 'mosquitto']).split())
         for pid in pid_list:
@@ -175,10 +216,14 @@ class Daemon_run:
     """
 
     try:
+      # Topic for regular communication
       if message.topic == self._topic_in:
         self._message_queue.put_nowait(loads(message.payload))
+      # Topic for receiving protocol files
       elif message.topic == self._topic_protocol_in:
         self._protocol_queue.put_nowait(loads(message.payload))
+
+    # Happens if the received message was not pickled
     except UnpicklingError:
       self._publish("Warning ! Message raised UnpicklingError, ignoring it")
 
@@ -224,6 +269,7 @@ class Daemon_run:
         else:
           self._publish("Protocol terminated with an error")
 
+      # Check if the protocol started during the last loop
       elif self._is_protocol_active and not is_active:
         is_active = True
 
@@ -234,34 +280,19 @@ class Daemon_run:
         except Empty:
           continue
 
-        if message == "Return protocol list":
-          self._send_protocol_list()
+        # Handling the incoming message
+        matched = False
+        for msg, method in self._msg_to_meth.items():
+          # Parsing the message to know which action to perform and get the args
+          match = msg_templates[msg].fullmatch(message)
+          if match is not None:
+            # Calling the right method with the right args
+            method(**match.groupdict())
+            matched = True
+            break
 
-        elif message == "Print status":
-          self._send_protocol_status()
-
-        elif message.startswith("Upload protocol"):
-          self._save_protocol(*message.replace("Upload protocol ", "").
-                              split(" "))
-
-        elif message.startswith("Download protocol"):
-          self._send_protocol(message.replace("Download protocol ", ""))
-
-        elif message.startswith("Start protocol"):
-          self._start_protocol(message.replace("Start protocol ", ""))
-
-        elif message == "Stop protocol":
-          self._stop_protocol()
-
-        elif message == "Stop server":
-          if self._is_protocol_active:
-            if self._stop_protocol():
-              self._publish("Error ! Could not stop the current protocol, "
-                            "server not stopped")
-              continue
-          raise DaemonStop
-
-        else:
+        # In case the message has an unknown syntax, tell the client
+        if not matched:
           self._publish("Error ! Invalid command message")
 
       sleep(1)
@@ -271,10 +302,13 @@ class Daemon_run:
 
     if self._protocol is None:
       self._publish("No protocol started yet")
+
     elif self._is_protocol_active:
       self._publish("Protocol running")
+
     elif self._protocol.poll() == 0:
       self._publish("Last protocol terminated gracefully")
+
     else:
       self._publish("Last protocol terminated with an error")
 
@@ -282,12 +316,18 @@ class Daemon_run:
     """Sends the clients the list of protocols in the Protocols/ folder"""
 
     try:
+      # Getting the list of files in the Protocols folder
       protocol_list = Path.iterdir(protocols_path)
-      protocols = [protocol.name.replace("Protocol_", "").replace(".py", "")
-                   for protocol in protocol_list if
-                   protocol.name.startswith("Protocol")]
+
+      # Keeping only the name of the files that are actually protocols
+      protocols = [get_protocol_name(protocol) for protocol in protocol_list if
+                   get_protocol_name(protocol) is not None]
+
+    # In case the Protocols modules does not exist
     except FileNotFoundError:
       protocols = []
+
+    # Sending the list to the clients
     self._client.publish(topic=self._topic_protocol_list,
                          payload=dumps(protocols),
                          qos=2)
@@ -303,14 +343,17 @@ class Daemon_run:
       name: The name of the protocol to send.
     """
 
-    with open(protocols_path / ("Protocol_" + name + ".py"),
-              'r') as protocol_file:
+    # Getting the protocol as text
+    with open(protocols_path / f"Protocol_{name}.py", 'r') as protocol_file:
       protocol = list(protocol_file)
 
+    # Sending it
     if self._client.publish(topic=self._topic_protocol_out,
                             payload=dumps(protocol),
                             qos=2).is_published():
       self._publish("Protocol successfully downloaded")
+
+    # Checking it was successfully sent
     else:
       self._publish("Error ! Protocol not properly sent")
 
@@ -326,6 +369,7 @@ class Daemon_run:
         server.
     """
 
+    # Checking that the password given is correct
     with open(base_path / "password.txt", 'r') as password_file:
       password = password_file.read()
     if p_word != password:
@@ -333,14 +377,18 @@ class Daemon_run:
       return
 
     try:
+      # Getting the protocol from the client
       protocol = self._protocol_queue.get(timeout=5)
 
-      with open(protocols_path / ("Protocol_" + name + ".py"),
-                'w') as protocol_file:
+      # Writing it in the local Protocols module
+      with open(protocols_path / f"Protocol_{name}.py", 'w') as protocol_file:
         for line in protocol:
           protocol_file.write(line)
+
+      # Telling the client it was successful
       self._publish("Protocol successfully uploaded")
 
+    # Case when the client didn't send a protocol
     except Empty:
       self._publish("Error ! No protocol received")
 
@@ -369,23 +417,22 @@ class Daemon_run:
     from Protocols import Led, Mecha, Elec
 
     with open(self._protocol_path, 'w') as executable_file:
-      executable_file.write('# coding: utf-8' + "\n")
-      executable_file.write("\n")
+      executable_file.write("# coding: utf-8\n\n")
 
-      executable_file.write("Led = [" + "\n")
+      executable_file.write("Led = [\n")
       for dic in Led:
-        executable_file.write(str(dic) + "," + "\n")
+        executable_file.write(f"{dic},\n")
       executable_file.write("]" + "\n")
 
-      executable_file.write("Mecha = [" + "\n")
+      executable_file.write("Mecha = [\n")
       for dic in Mecha:
-        executable_file.write(str(dic) + "," + "\n")
-      executable_file.write("]" + "\n")
+        executable_file.write(f"{dic},\n")
+      executable_file.write("]\n")
 
-      executable_file.write("Elec = [" + "\n")
+      executable_file.write("Elec = [\n")
       for dic in Elec:
-        executable_file.write(str(dic) + "," + "\n")
-      executable_file.write("]" + "\n")
+        executable_file.write(f"{dic},\n")
+      executable_file.write("]\n")
 
       with open(base_path / "Server" / "_Protocol_template.py",
                 'r') as template:
@@ -393,7 +440,7 @@ class Daemon_run:
           if "#" not in line:
             executable_file.write(line)
 
-  def _start_protocol(self, protocol: str) -> None:
+  def _start_protocol(self, name: str) -> None:
     """Starts a new protocol, if no other protocol is currently running.
 
     first writes a few files in  order for the right protocol to run. Also
@@ -401,13 +448,18 @@ class Daemon_run:
     crashed.
 
     Args:
-      protocol: The protocol to start.
+      name: The protocol to start.
     """
 
     if not self._is_protocol_active:
-      self._choose_protocol(protocol)
+      # Rewrites the __init__.py file of the Protocols module
+      self._choose_protocol(name)
+      # Rewrites the Protocol.py file
       self._write_protocol()
+      # Starts the process
       self._protocol = Popen(['python3', self._protocol_path])
+
+      # Makes sure the protocol has started
       try:
         self._protocol.wait(5)
         try:
@@ -418,6 +470,7 @@ class Daemon_run:
       except TimeoutExpired:
         self._publish("Protocol started")
 
+    # A protocol is already running
     else:
       self._publish("Protocol already running, stop it before starting new "
                     "one")
@@ -439,28 +492,43 @@ class Daemon_run:
     else:
       # Trying to get the protocol to stop itself
       self._protocol.send_signal(SIGINT)
+      # Check if the protocol actually stopped
       try:
         self._protocol.wait(10)
+
       except TimeoutExpired:
         try:
-          # If not successful, asking the process to stop
+          # The protocol didn't stop after 10 seconds, trying to terminate it
           self._protocol.terminate()
           self._protocol.wait(10)
+
         except TimeoutExpired:
-          # If still not successful, abruptly killing the process
+          # The protocol still didn't stop, killing it
           self._protocol.kill()
           self._protocol.wait(10)
 
-      # Sending the results to the clients
+      # Sending the logs to the clients
       if self._protocol.poll() is None:
         self._publish("Error ! Could not stop the protocol")
         return 1
+
       elif self._protocol.poll() == 0:
         self._publish("Protocol terminated gracefully")
+
       else:
         self._publish("Protocol terminated with an error")
 
     return 0
+
+  def _stop_server(self) -> None:
+    """"""
+
+    if self._is_protocol_active:
+      if self._stop_protocol():
+        self._publish("Error ! Could not stop the current protocol, "
+                      "server not stopped")
+        return
+    raise DaemonStop
 
   @property
   def _is_protocol_active(self) -> bool:
