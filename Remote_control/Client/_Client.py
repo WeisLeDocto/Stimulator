@@ -6,6 +6,7 @@ from queue import Queue
 from socket import timeout, gaierror
 from pickle import loads, dumps, UnpicklingError
 from ast import literal_eval
+from typing import Tuple, List, AnyStr
 
 from sys import argv, exit
 from PyQt5.QtWidgets import QApplication
@@ -20,8 +21,8 @@ class Client_loop:
                port: int,
                topic_out: str = 'Remote_control',
                topic_in: str = 'Server_status',
-               topic_data: tuple = ('t', 'pos'),
-               topic_is_busy: tuple = ('busy',),
+               topic_data: Tuple[str, ...] = ('t', 'pos'),
+               topic_is_busy: Tuple[str, ...] = ('busy',),
                topic_protocol_out: str = 'Protocols_upload',
                topic_protocol_in: str = 'Protocols_download',
                topic_protocol_list: str = 'Protocols_list') -> None:
@@ -57,19 +58,22 @@ class Client_loop:
     if not isinstance(topic_protocol_list, str):
       raise TypeError("topic_protocol_list should be a string")
 
-    # Setting the topics and the queues
-    self._topic_in = topic_in
-    self._topic_out = topic_out
-    self._topic_is_busy = topic_is_busy
-    self._topic_data = topic_data
-    self._topic_protocol_in = topic_protocol_in
-    self._topic_protocol_out = topic_protocol_out
-    self._topic_protocol_list = topic_protocol_list
+    # Creating the queues for receiving data
     self.answer_queue = Queue()
     self.data_queue = Queue()
     self.is_busy_queue = Queue()
     self.protocol_queue = Queue()
     self.protocol_list_queue = Queue()
+
+    # Setting the topics
+    self._topic_out = topic_out
+    self._topic_data = topic_data
+    self._topic_protocol_out = topic_protocol_out
+    self._all_topics_in = {topic_in: self.answer_queue,
+                           topic_is_busy: self.is_busy_queue,
+                           topic_data: self.data_queue,
+                           topic_protocol_in: self.protocol_queue,
+                           topic_protocol_list: self.protocol_list_queue}
 
     # Setting the mqtt client
     self._client = Client(str(time()))
@@ -105,57 +109,12 @@ class Client_loop:
                                 payload=dumps(message),
                                 qos=2)[0]
 
-  def upload_protocol(self, protocol: list) -> int:
+  def upload_protocol(self, protocol: List[AnyStr]) -> int:
+    """"""
+
     return self._client.publish(topic=self._topic_protocol_out,
                                 payload=dumps(protocol),
                                 qos=2)[0]
-
-  def _on_message(self, _, __, message) -> None:
-    """Callback executed upon reception of a message or data from the
-    server.
-
-    The message or data is put in a queue, waiting to be processed by the
-    graphical interface.
-    """
-
-    try:
-      # If the message contains data
-      if literal_eval(message.topic) == self._topic_data:
-        self.data_queue.put_nowait(loads(message.payload))
-      elif literal_eval(message.topic) == self._topic_is_busy:
-        self.is_busy_queue.put_nowait(loads(message.payload))
-    except ValueError:
-      # If the message contains text
-      if message.topic == self._topic_in:
-        self.answer_queue.put_nowait(loads(message.payload))
-        print("Got message" + " : " + loads(message.payload))
-      elif message.topic == self._topic_protocol_in:
-        self.protocol_queue.put_nowait(loads(message.payload))
-      elif message.topic == self._topic_protocol_list:
-        self.protocol_list_queue.put_nowait(loads(message.payload))
-    except UnpicklingError:
-      # If the message hasn't been pickled before sending
-      print("Warning ! Message raised UnpicklingError, ignoring it")
-
-  def _on_connect(self, *_, **__) -> None:
-    """Callback executed when connecting to the server.
-
-    Simply subscribes to all the necessary topics.
-    """
-
-    self._client.subscribe(topic=self._topic_in, qos=2)
-    self._client.subscribe(topic=str(self._topic_data), qos=0)
-    self._client.subscribe(topic=str(self._topic_is_busy), qos=2)
-    self._client.subscribe(topic=str(self._topic_protocol_in), qos=2)
-    self._client.subscribe(topic=str(self._topic_protocol_list), qos=2)
-    print("Subscribed")
-    self.is_connected = True
-    self._client.loop_start()
-
-  def _on_disconnect(self, *_, **__) -> None:
-    """Sets the :attr:`is_connected` flag to :obj:`False`."""
-
-    self.is_connected = False
 
   def connect_to_broker(self, address: str) -> str:
     """Simply connects to the server.
@@ -169,27 +128,75 @@ class Client_loop:
       A text message to be displayed to the user in case connection failed.
     """
 
-    # Connecting to the broker
     try:
       if self._connected_once:
+        # Reconnecting to the broker
         self._client.reconnect()
       else:
+        # Connecting to the broker for the first time
         self._client.connect(host=address, port=self._port, keepalive=10)
       self.is_connected = True
       self._connected_once = True
+
+    # The server took too long to reply
     except timeout:
-      print("Impossible to reach the given address, aborting")
       self.is_connected = False
       return "Address unreachable"
+
+    # Couldn't get address info
     except gaierror:
-      print("Invalid address given, please check the spelling")
       self.is_connected = False
       return "Address invalid"
+
+    # The connection was refused
     except ConnectionRefusedError:
-      print("Connection refused, the broker may not be running or you may "
-            "not have the rights to connect")
       self.is_connected = False
-      return "Server not running"
+      return "Server not running or not allowed to connect"
 
     self._client.loop_start()
     return ""
+
+  def _on_message(self, _, __, message) -> None:
+    """Callback executed upon reception of a message or data from the
+    server.
+
+    The message or data is put in a queue, waiting to be processed by the
+    graphical interface.
+    """
+
+    try:
+      # Getting the topic as string or a tuple
+      try:
+        topic = literal_eval(message.topic)
+      except ValueError:
+        topic = message.topic
+
+      # Putting the message in the right queue
+      try:
+        self._all_topics_in[topic].put_nowait(loads(message.payload))
+      except KeyError:
+        pass
+
+    # The message hasn't been pickled before sending
+    except UnpicklingError:
+      pass
+
+  def _on_connect(self, *_, **__) -> None:
+    """Callback executed when connecting to the server.
+
+    Simply subscribes to all the necessary topics.
+    """
+
+    # Subscribing to all the topics
+    for topic in self._all_topics_in:
+      self._client.subscribe(topic=str(topic),
+                             qos=0 if topic == self._topic_data else 2)
+
+    # Starting the loop
+    self.is_connected = True
+    self._client.loop_start()
+
+  def _on_disconnect(self, *_, **__) -> None:
+    """Sets the :attr:`is_connected` flag to :obj:`False`."""
+
+    self.is_connected = False
