@@ -11,10 +11,10 @@ from signal import SIGINT
 from psutil import Process, AccessDenied
 from sys import path
 from importlib import reload
-from re import fullmatch, compile
-from typing import Optional
+from re import compile
 
 from ..__paths__ import base_path, protocols_path
+from ..Tools import get_protocol_name
 
 # Preparing the import of the Protocols module
 path.append(str(base_path.parent))
@@ -32,15 +32,6 @@ if not Path.exists(protocols_path) or not Path.exists(
 
 # Finally, importing the module
 import Protocols
-
-
-def get_protocol_name(file: Path) -> Optional[str]:
-  """Returns the name of the protocol located in a given .py file if it matches
-  the right syntax, else returns None."""
-
-  match = fullmatch(r'Protocol_(?P<name>.+)\.py', file.name)
-  return match.group('name') if match is not None else None
-
 
 msg_templates = {"Return list": compile(r'Return\sprotocol\slist'),
                  "Print status": compile(r'Print\sstatus'),
@@ -404,10 +395,8 @@ class Daemon_run:
     """
 
     with open(protocols_path / "__init__.py", 'w') as init:
-      init.write("# coding: utf-8" + "\n")
-      init.write("\n")
-      init.write("from .Protocol_" + protocol + " import Led, Mecha, Elec"
-                 + "\n")
+      init.write("# coding: utf-8" + "\n\n")
+      init.write(f"from .Protocol_{protocol} import Led, Mecha, Elec\n")
 
   def _write_protocol(self):
     """Writes the ``Protocol.py`` file using the generator lists and the
