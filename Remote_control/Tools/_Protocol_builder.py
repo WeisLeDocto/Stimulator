@@ -1,10 +1,14 @@
 # coding: utf-8
 
 from ._Protocol_phases import Protocol_phases, Protocol_parameters
+
 from functools import partial
 from pathlib import Path
 from ast import literal_eval
-from typing import List, Union
+from typing import Optional, List, Union
+from re import compile, fullmatch
+from itertools import chain
+
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QWidget
@@ -28,6 +32,24 @@ from PyQt5.QtGui import QDoubleValidator
 
 from ..__paths__ import protocols_path
 
+meth_to_disp = {
+  'add_electrical_stimulation': 'Add electrical stimulation',
+  'add_electrical_rest': 'Add electrical rest',
+  'add_continuous_stretching': 'Add continuous stretching',
+  'add_cyclic_stretching_steady': 'Add cyclic stretching (steady)',
+  'add_cyclic_stretching_progressive': 'Add cyclic stretching (progressive)',
+  'add_mechanical_rest': 'Add mechanical rest'}
+
+disp_to_meth = {val: key for key, val in meth_to_disp.items()}
+
+
+def get_protocol_name(file: Path) -> Optional[str]:
+  """Returns the name of the protocol located in a given .py file if it matches
+  the right syntax, else returns None."""
+
+  match = fullmatch(r'Protocol_(?P<name>.+)\.py', file.name)
+  return match.group('name') if match is not None else None
+
 
 class Param_dialog(QDialog):
   """A class for displaying a window allowing the user to choose the parameters
@@ -36,7 +58,7 @@ class Param_dialog(QDialog):
   def __init__(self,
                parent: QMainWindow,
                text: str,
-               previous: list = None) -> None:
+               previous: Optional[list] = None) -> None:
     """Sets the layout and displays the window.
 
     Args:
@@ -53,8 +75,8 @@ class Param_dialog(QDialog):
     main_layout = QVBoxLayout()
     self.setLayout(main_layout)
 
-    self.field_list = []
-    self.validation_list = []
+    self.field_list: List[QWidget] = list()
+    self.validation_list: List[QLabel] = list()
 
     if previous is None:
       previous = [None for _ in Protocol_parameters[text]]
@@ -76,9 +98,9 @@ class Param_dialog(QDialog):
     # Rearranging the name for a nicer display
     for (param, typ), prev in zip(Protocol_parameters[text].items(), previous):
       text_list = param.capitalize().replace('_', ' ').split()
-      text_str = ' '.join(text_list[:-1] + ['(' + text_list[-1] + ')']
+      text_str = ' '.join(text_list[:-1] + [f'({text_list[-1]})']
                           if typ is float else text_list)
-      left_layout.addWidget(QLabel(text_str + " :"))
+      left_layout.addWidget(QLabel(f'{text_str} :'))
       self.field_list.append(QLineEdit() if typ is float else QSpinBox())
       self.validation_list.append(QLabel(""))
       if isinstance(self.field_list[-1], QLineEdit):
@@ -108,7 +130,7 @@ class Param_dialog(QDialog):
 
     main_layout.addWidget(buttons)
 
-  def return_values(self) -> list:
+  def return_values(self) -> List[Union[float, int]]:
     """Gets the parameter values.
 
     Returns:
@@ -128,8 +150,8 @@ class Param_dialog(QDialog):
     # to be displayed
     valid = True
     for i, field in enumerate(self.field_list):
-      if isinstance(field, QLineEdit) and \
-            field.validator().validate(field.text(), 0)[0] != 2:
+      if (isinstance(field, QLineEdit) and
+          field.validator().validate(field.text(), 0)[0] != 2):
         self.validation_list[i].setText("Invalid input !")
         self.validation_list[i].setStyleSheet("color: red;")
         valid = False
@@ -154,6 +176,32 @@ class Phase(QListWidgetItem):
     self.txt = text
 
 
+class QListWidgetIter(QListWidget):
+  """"""
+
+  def __init__(self) -> None:
+    """"""
+
+    super().__init__()
+    self._count = -1
+
+  def __iter__(self):
+    return self
+
+  def __next__(self):
+    self._count += 1
+    item = self.item(self._count)
+    if item is None:
+      self._count = -1
+      raise StopIteration
+    return item
+
+  def item(self, row: int) -> Phase:
+    """"""
+
+    return super().item(row)
+
+
 class Protocol_builder(QMainWindow):
   """Class for displaying a graphical interface in which the user can create and
   visualize stimulation protocols."""
@@ -174,7 +222,6 @@ class Protocol_builder(QMainWindow):
     """Sets the layout and shows the interface."""
 
     self._set_layout()
-
     self._set_connections()
 
     # Places the window in the center of the screen
@@ -208,7 +255,7 @@ class Protocol_builder(QMainWindow):
     self._mecha_title.setStyleSheet("font-weight: bold")
     self._mecha_layout.addWidget(self._mecha_title)
 
-    self._list_mecha = QListWidget()
+    self._list_mecha = QListWidgetIter()
     self._mecha_layout.addWidget(self._list_mecha)
 
     self._add_mecha_resting = QPushButton("Add mechanical rest")
@@ -251,7 +298,7 @@ class Protocol_builder(QMainWindow):
     self._elec_title.setStyleSheet("font-weight: bold")
     self._elec_layout.addWidget(self._elec_title)
 
-    self._list_elec = QListWidget()
+    self._list_elec = QListWidgetIter()
     self._elec_layout.addWidget(self._list_elec)
 
     self._add_elec_resting = QPushButton("Add electrical rest")
@@ -287,7 +334,7 @@ class Protocol_builder(QMainWindow):
     # Buttons for exiting, validating and displaying
     self._buttons = QDialogButtonBox(
       QDialogButtonBox.StandardButton(QDialogButtonBox.Save |
-                                      QDialogButtonBox.Cancel))
+                                      QDialogButtonBox.Close))
     self._buttons.addButton("Show protocol", QDialogButtonBox.HelpRole)
     self._load_button = self._buttons.addButton("Load protocol",
                                                 QDialogButtonBox.ActionRole)
@@ -339,7 +386,7 @@ class Protocol_builder(QMainWindow):
     self._list_mecha.itemDoubleClicked.connect(
       partial(self._show_item, self._list_mecha))
 
-    self._buttons.rejected.connect(self.close)
+    self._buttons.rejected.connect(self._exit)
     self._buttons.accepted.connect(self._save_protocol)
     self._buttons.helpRequested.connect(self._show_graphs)
     self._load_button.clicked.connect(self._load_protocol)
@@ -348,7 +395,7 @@ class Protocol_builder(QMainWindow):
     """Displays graphs for visualizing the current protocol."""
 
     # Aborting if there's nothing to display
-    if self._list_elec.count() == 0 and self._list_mecha.count() == 0:
+    if not self._list_elec.count() and not self._list_mecha.count():
       mes_box = QMessageBox(QMessageBox.Warning,
                             "Warning !",
                             "The protocol is empty !")
@@ -359,18 +406,8 @@ class Protocol_builder(QMainWindow):
     # Rebuilds the internal protocol lists
     self._protocol.reset_protocol()
 
-    for i in range(self._list_elec.count()):
-      phase = self._list_elec.item(i)
-      txt = phase.txt.lower().replace('(', '').replace(')', '')\
-          .replace(' ', '_')
-      meth = getattr(self._protocol, txt)
-      meth(*phase.values)
-
-    for i in range(self._list_mecha.count()):
-      phase = self._list_mecha.item(i)
-      txt = phase.txt.lower().replace('(', '').replace(')', '')\
-          .replace(' ', '_')
-      meth = getattr(self._protocol, txt)
+    for phase in chain(self._list_elec, self._list_mecha):
+      meth = getattr(self._protocol, disp_to_meth[phase.txt])
       meth(*phase.values)
 
     self._protocol.plot_protocol()
@@ -381,19 +418,8 @@ class Protocol_builder(QMainWindow):
     # Listing the protocol files
     try:
       protocol_list = Path.iterdir(protocols_path)
-    except FileNotFoundError:
-      mes_box = QMessageBox(QMessageBox.Warning,
-                            "Warning !",
-                            "No protocol to load found !")
-      mes_box.setStandardButtons(QMessageBox.Ok)
-      mes_box.exec()
-      return
-
-    # Considering only the right files
-    try:
-      items = [protocol.name.replace("Protocol_", "").replace(".py", "")
-               for protocol in protocol_list
-               if protocol.name.startswith("Protocol")]
+      items = [get_protocol_name(protocol) for protocol in protocol_list
+               if get_protocol_name(protocol) is not None]
       if not items:
         raise FileNotFoundError
     except FileNotFoundError:
@@ -420,36 +446,31 @@ class Protocol_builder(QMainWindow):
     self._list_mecha.clear()
 
     protocol = []
-    item = "Protocol_" + item + ".py"
+    item = f"Protocol_{item}.py"
     with open(protocols_path / item, 'r') as protocol_file:
       for line in protocol_file:
         protocol.append(line)
 
-    protocol = [line.replace("new_prot.", "").replace(")\n", "").split('(')
-                for line in protocol if line.startswith("new_prot.")]
+    pattern = compile(r'new_prot\.(?P<meth>.+)\((?P<args>.+)\).*\n')
+    phases = (pattern.fullmatch(line) for line in protocol
+              if pattern.fullmatch(line) is not None)
 
-    for phase in protocol:
-      phase: List[Union[str, List[str]]]
-      if phase[0] in ['add_electrical_stimulation', 'add_electrical_rest']:
-        phase[0] = phase[0].capitalize().replace('_', ' ')
-        phase[1] = list(literal_eval(phase[1]) if
-                        isinstance(literal_eval(phase[1]), tuple)
-                        else (literal_eval(phase[1]),))
-        self._list_elec.addItem(Phase(phase[0], phase[1]))
+    for phase in phases:
+      meth, args_txt = phase.groups()
+      text = meth_to_disp[meth]
+      args = literal_eval(args_txt) if isinstance(
+        literal_eval(args_txt), tuple) else (literal_eval(args_txt),)
+
+      if 'electrical' in text:
+        self._list_elec.addItem(Phase(text, args))
       else:
-        phase[0] = phase[0].capitalize().replace('_', ' ').replace('steady',
-                                                                   '(steady)').\
-          replace('progressive', '(progressive)')
-        phase[1] = list(literal_eval(phase[1]) if
-                        isinstance(literal_eval(phase[1]), tuple)
-                        else (literal_eval(phase[1]),))
-        self._list_mecha.addItem(Phase(phase[0], phase[1]))
+        self._list_mecha.addItem(Phase(text, args))
 
   def _save_protocol(self):
     """Saves the current protocol to the Protocols/ directory."""
 
     # Aborting if there's nothing to save
-    if self._list_elec.count() == 0 and self._list_mecha.count() == 0:
+    if not self._list_elec.count() and not self._list_mecha.count():
       mes_box = QMessageBox(QMessageBox.Warning,
                             "Warning !",
                             "The protocol is empty !")
@@ -460,46 +481,33 @@ class Protocol_builder(QMainWindow):
     # Rebuilds the internal protocol lists
     self._protocol.reset_protocol()
 
-    for i in range(self._list_elec.count()):
-      phase = self._list_elec.item(i)
-      txt = phase.txt.lower().replace('(', '').replace(')', '') \
-          .replace(' ', '_')
-      meth = getattr(self._protocol, txt)
-      meth(*phase.values)
-
-    for i in range(self._list_mecha.count()):
-      phase = self._list_mecha.item(i)
-      txt = phase.txt.lower().replace('(', '').replace(')', '') \
-          .replace(' ', '_')
-      meth = getattr(self._protocol, txt)
+    for phase in chain(self._list_elec, self._list_mecha):
+      meth = getattr(self._protocol, disp_to_meth[phase.txt])
       meth(*phase.values)
 
     # Setting a name for the protocol
     name, ok = QInputDialog.getText(self,
                                     "Protocol name",
                                     "Please enter the name of the protocol :")
+    if not ok:
+      return
     name = name.replace(' ', '_')
 
     # Actually writing the protocol .py file
-    if ok:
-      if not Path.exists(protocols_path):
-        Path.mkdir(protocols_path)
-        with open(protocols_path / "__init__.py", 'w') as init_file:
-          init_file.write("# coding: utf-8" + "\n")
-          init_file.write("\n")
-          init_file.write(
-            "from .Protocol_" + name + " import Led, Mecha, Elec"
-            + "\n")
+    if not Path.exists(protocols_path):
+      Path.mkdir(protocols_path)
+      with open(protocols_path / "__init__.py", 'w') as init_file:
+        init_file.write("# coding: utf-8\n\n")
+        init_file.write(f"from .Protocol_{name} import Led, Mecha, Elec\n")
 
-      with open(protocols_path /
-                ("Protocol_" + name + ".py"), 'w') as exported_file:
-        for line in self._protocol.py_file:
-          exported_file.write(line)
+    with open(protocols_path / f"Protocol_{name}.py", 'w') as exported_file:
+      for line in self._protocol.py_file:
+        exported_file.write(line)
 
-        exported_file.write("Led, Mecha, Elec = new_prot.export()" + "\n")
+      exported_file.write("Led, Mecha, Elec = new_prot.export()\n")
 
   def _add_item(self, list_: QListWidget, text: str) -> None:
-    """Adds an protocol phase to the list of phases.
+    """Adds a protocol phase to the list of phases.
 
     First displays an interface for choosing the parameters of the phase.
 
@@ -563,3 +571,8 @@ class Protocol_builder(QMainWindow):
       list_.insertItem(list_.currentRow() + position,
                        list_.takeItem(list_.currentRow()))
       list_.setCurrentRow(prev_row + position)
+
+  def _exit(self) -> None:
+    """"""
+
+    self.close()

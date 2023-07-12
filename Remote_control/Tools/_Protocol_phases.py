@@ -3,14 +3,17 @@
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 from matplotlib.widgets import TextBox
+from typing import List, Optional, Tuple, Any, Union, Dict
+from dataclasses import dataclass, field
+from collections import OrderedDict
 
 
 cyclic_stretching_steady = {'rest_position_mm': float,
                             'stretched_position_mm': float,
                             'number_of_cycles': int,
                             'number_of_reps': int,
-                            'time_to_reach_position_seconds': float,
                             'number_of_sets': int,
+                            'time_to_reach_position_seconds': float,
                             'rest_between_reps_minutes': float,
                             'rest_between_sets_minutes': float}
 
@@ -19,8 +22,8 @@ cyclic_stretching_progressive = {'rest_position_mm': float,
                                  'last_stretched_position_mm': float,
                                  'number_of_cycles': int,
                                  'number_of_reps': int,
-                                 'time_to_reach_position_seconds': float,
                                  'number_of_sets': int,
+                                 'time_to_reach_position_seconds': float,
                                  'rest_between_reps_minutes': float,
                                  'rest_between_sets_minutes': float}
 
@@ -45,6 +48,79 @@ Protocol_parameters = {"Add cyclic stretching (steady)":
                        "Add electrical stimulation": electrical_stimulation}
 
 
+@dataclass
+class Data_vs_time:
+  """"""
+
+  timestamps: List[Union[datetime, float]] = field(default_factory=list)
+  values: List[Any] = field(default_factory=list)
+
+  _index: int = -1
+
+  def __add__(self, other):
+    return Data_vs_time(timestamps=self.timestamps + other.timestamps,
+                        values=self.values + other.values)
+
+  def __len__(self):
+    return len(self.values)
+
+  def parse_raw_data(self,
+                     data: List[Tuple[float, Union[float, bool]]],
+                     init: Optional[Union[float, bool]] = None) -> None:
+    """"""
+
+    if not data:
+      return
+
+    # Initializing the lists
+    timestamps = [0.]
+    values = [data[0][1]] if init is None else [init]
+
+    # Filling the lists
+    for (t, _), (_, value) in zip(data[:-1], data[1:]):
+      last_t = timestamps[-1]
+      timestamps.append(t + last_t)
+      values.append(value)
+
+    # Saving the list as the new data of the class
+    self.timestamps = timestamps
+    self.values = values
+
+  def remove_redundant(self) -> None:
+    """"""
+
+    # Getting the indexes of the duplicate values
+    to_remove = []
+    for i, (value1, value2) in enumerate(zip(self.values[:-1],
+                                             self.values[1:])):
+      if value1 == value2:
+        to_remove.append(i + 1)
+
+    # Removing the values at the given indexes from the lists
+    to_remove.reverse()
+    for i in to_remove:
+      del self.timestamps[i]
+      del self.values[i]
+
+  def make_curve(self, current_time: datetime):
+    """"""
+
+    if len(self) <= 1:
+      return
+
+    curve_data = Data_vs_time(
+      timestamps=[current_time + timedelta(self.timestamps[0])],
+      values=[self.values[0]])
+
+    for t, val in zip(self.timestamps[1:], self.values[1:]):
+      curve_data.timestamps.append(current_time + timedelta(seconds=t))
+      curve_data.values.append(curve_data.values[-1])
+      curve_data.timestamps.append(current_time + timedelta(seconds=t))
+      curve_data.values.append(val)
+
+    return curve_data
+
+
 class Protocol_phases:
   """Class implementing methods for building a stimulation protocol."""
 
@@ -63,23 +139,19 @@ class Protocol_phases:
         orange ?
     """
 
-    self._full_step_per_mm = full_step_per_mm
-    self._step_mode = step_mode
-    self._time_orange_on_minutes = time_orange_on_minutes
+    self._step_mm: float = full_step_per_mm
+    self._step_mode: int = step_mode
+    self._time_orange_on_secs: float = time_orange_on_minutes * 60
 
-    self._mecha_stimu = []
-    self._elec_stimu = []
-    self._mecha_stimu_on = [(0., False)]
-    self._elec_stimu_on = [(0., False)]
-    self._position = [(0., 0.)]
+    self._mecha_dicts: List[Dict[str, Any]] = list()
+    self._elec_dicts: List[Dict[str, Any]] = list()
+    self._mecha_stimu_on: List[Tuple[float, bool]] = list()
+    self._elec_stimu_on: List[Tuple[float, bool]] = list()
+    self._position: List[Tuple[float, float]] = list()
 
-    self.py_file = ["# coding: utf-8" + "\n",
-                    "\n",
-                    "from ..Tools import Protocol_phases" + "\n",
-                    "\n",
-                    "new_prot = Protocol_phases()" + "\n",
-                    "\n"
-                    ]
+    self.py_file = ["# coding: utf-8" + "\n\n",
+                    "from Remote_control.Tools import Protocol_phases\n\n",
+                    "new_prot = Protocol_phases()\n\n"]
 
   def add_continuous_stretching(self,
                                 travel_length_mm: float,
@@ -102,12 +174,13 @@ class Protocol_phases:
     """
 
     # Calculating parameters
-    delay_between_steps = total_duration_hours * 60 * 60 * (
-        1 - resting_time_ratio) / self._full_step_per_mm / self._step_mode / \
-        abs(travel_length_mm)
-    step_length = 1 / self._full_step_per_mm / self._step_mode
-    number_of_steps = int(abs(travel_length_mm) * self._step_mode *
-                          self._full_step_per_mm)
+    consecutive_duration_seconds = consecutive_stretch_duration_hours * 60 * 60
+    delay_between_steps = (
+        total_duration_hours * 60 * 60 * (1 - resting_time_ratio) /
+        self._step_mm / self._step_mode / abs(travel_length_mm))
+    step_length = 1 / self._step_mm / self._step_mode
+    number_of_steps = int(abs(travel_length_mm) *
+                          self._step_mode * self._step_mm)
 
     # Adding positions step by step, and adding a resting phase when needed
     time_count = 0
@@ -116,29 +189,27 @@ class Protocol_phases:
                       delay=delay_between_steps,
                       is_active=True)
       time_count += delay_between_steps
-      if time_count > consecutive_stretch_duration_hours * 60 * 60:
-        time_count -= consecutive_stretch_duration_hours * 60 * 60
+      if time_count > consecutive_duration_seconds:
+        time_count -= consecutive_duration_seconds
         self._add_mecha(position=i * step_length,
                         delay=round((1 / (1 - resting_time_ratio) - 1) *
-                                    consecutive_stretch_duration_hours *
-                                    60 * 60),
+                                    consecutive_duration_seconds),
                         is_active=False)
 
-    self.py_file.extend("new_prot.add_continuous_stretching({}, {}, {}, {})".
-                        format(travel_length_mm, resting_time_ratio,
-                               consecutive_stretch_duration_hours,
-                               total_duration_hours) + "\n")
-    self.py_file.extend("\n")
+    self.py_file.extend(f"new_prot.add_continuous_stretching("
+                        f"{travel_length_mm}, {resting_time_ratio}, "
+                        f"{consecutive_stretch_duration_hours}, "
+                        f"{total_duration_hours})\n\n")
 
   def add_cyclic_stretching_steady(self,
                                    rest_position_mm: float,
                                    stretched_position_mm: float,
                                    number_of_cycles: int,
                                    number_of_reps: int,
-                                   time_to_reach_position_seconds: float,
                                    number_of_sets: int,
-                                   rest_between_sets_minutes: float,
-                                   rest_between_reps_minutes: float) -> None:
+                                   time_to_reach_position_seconds: float,
+                                   rest_between_reps_minutes: float,
+                                   rest_between_sets_minutes: float) -> None:
     """Adds a cyclic stretching phase, during which the muscle is being
     stretched in a cyclic way.
 
@@ -152,13 +223,13 @@ class Protocol_phases:
         stretched.
       number_of_cycles: The number of cycles during a rep.
       number_of_reps: The number of reps during a set.
+      number_of_sets: The number of sets.
       time_to_reach_position_seconds: The delay between a command to go to
         stretched position and a command to return to resting position during a
         cycle. Depending on speed, the pin may not have time to reach the target
         position and the actual stretched position is then less than expected.
-      number_of_sets: The number of sets.
+      rest_between_reps_minutes: The resting time between reps.
       rest_between_sets_minutes: The resting time between sets.
-      rest_between_reps_minutes: The resting time between cycles.
     """
 
     for _ in range(number_of_sets):
@@ -178,26 +249,24 @@ class Protocol_phases:
                       delay=rest_between_sets_minutes * 60,
                       is_active=False)
 
-    self.py_file.extend("new_prot.add_cyclic_stretching_steady({}, {}, {}, {}, "
-                        "{}, {}, {}, {})".
-                        format(rest_position_mm, stretched_position_mm,
-                               number_of_cycles, number_of_reps,
-                               time_to_reach_position_seconds, number_of_sets,
-                               rest_between_sets_minutes,
-                               rest_between_reps_minutes) + "\n")
-    self.py_file.extend("\n")
+    self.py_file.extend(f"new_prot.add_cyclic_stretching_steady("
+                        f"{rest_position_mm}, {stretched_position_mm}, "
+                        f"{number_of_cycles}, {number_of_reps}, "
+                        f"{time_to_reach_position_seconds}, {number_of_sets}, "
+                        f"{rest_between_sets_minutes}, "
+                        f"{rest_between_reps_minutes})\n\n")
 
-  def add_cyclic_stretching_progressive(self,
-                                        rest_position_mm: float,
-                                        first_stretched_position_mm: float,
-                                        last_stretched_position_mm: float,
-                                        number_of_cycles: int,
-                                        number_of_reps: int,
-                                        time_to_reach_position_seconds: float,
-                                        number_of_sets: int,
-                                        rest_between_sets_minutes: float,
-                                        rest_between_reps_minutes: float) -> \
-          None:
+  def add_cyclic_stretching_progressive(
+      self,
+      rest_position_mm: float,
+      first_stretched_position_mm: float,
+      last_stretched_position_mm: float,
+      number_of_cycles: int,
+      number_of_reps: int,
+      number_of_sets: int,
+      time_to_reach_position_seconds: float,
+      rest_between_reps_minutes: float,
+      rest_between_sets_minutes: float) -> None:
     """Adds a cyclic stretching phase, during which the muscle is being
     stretched in a cyclic way.
 
@@ -217,19 +286,19 @@ class Protocol_phases:
         stretched, at the end of the stretching cycle.
       number_of_cycles: The number of cycles during a rep.
       number_of_reps: The number of reps during a set.
+      number_of_sets: The number of sets.
       time_to_reach_position_seconds: The delay between a command to go to
         stretched position and a command to return to resting position during a
         cycle. Depending on speed, the pin may not have time to reach the target
         position and the actual stretched position is then less than expected.
-      number_of_sets: The number of sets.
-      rest_between_sets_minutes: The resting time between sets.
       rest_between_reps_minutes: The resting time between cycles.
+      rest_between_sets_minutes: The resting time between sets.
     """
 
     for j in range(number_of_sets):
-      position = first_stretched_position_mm + j * \
-                 (last_stretched_position_mm - first_stretched_position_mm) / \
-                 (number_of_sets - 1)
+      position = (first_stretched_position_mm + j *
+                  (last_stretched_position_mm - first_stretched_position_mm)
+                  / (number_of_sets - 1))
       for i in range(number_of_reps):
         for _ in range(number_of_cycles):
           self._add_mecha(position=position,
@@ -246,15 +315,12 @@ class Protocol_phases:
                       delay=rest_between_sets_minutes * 60,
                       is_active=False)
 
-    self.py_file.extend("new_prot.add_cyclic_stretching_progressive({}, {}, {},"
-                        " {}, {}, {}, {}, {}, {})".
-                        format(rest_position_mm, first_stretched_position_mm,
-                               last_stretched_position_mm,
-                               number_of_cycles, number_of_reps,
-                               time_to_reach_position_seconds, number_of_sets,
-                               rest_between_sets_minutes,
-                               rest_between_reps_minutes) + "\n")
-    self.py_file.extend("\n")
+    self.py_file.extend(f"new_prot.add_cyclic_stretching_progressive("
+                        f"{rest_position_mm}, {first_stretched_position_mm}, "
+                        f"{last_stretched_position_mm}, {number_of_cycles}, "
+                        f"{number_of_reps}, {time_to_reach_position_seconds}, "
+                        f"{number_of_sets}, {rest_between_sets_minutes}, "
+                        f"{rest_between_reps_minutes})\n\n")
 
   def add_mechanical_rest(self,
                           rest_duration_hours: float,
@@ -270,9 +336,8 @@ class Protocol_phases:
                     delay=rest_duration_hours * 60 * 60,
                     is_active=False)
 
-    self.py_file.extend("new_prot.add_mechanical_rest({}, {})".
-                        format(rest_duration_hours, rest_position_mm) + "\n")
-    self.py_file.extend("\n")
+    self.py_file.extend(f"new_prot.add_mechanical_rest({rest_duration_hours}, "
+                        f"{rest_position_mm})\n\n")
 
   def add_electrical_stimulation(self,
                                  pulse_duration_seconds: float,
@@ -287,7 +352,7 @@ class Protocol_phases:
     resting time. During a set, the muscle is continuously being stimulated.
 
     Args:
-      pulse_duration_seconds: The duration of an pulse.
+      pulse_duration_seconds: The duration of a pulse.
       set_duration_minutes: The duration of a set.
       delay_between_pulses_seconds: A pulse is sent once every this value
         seconds.
@@ -298,30 +363,26 @@ class Protocol_phases:
     pulses_per_set = round(set_duration_minutes * 60 /
                            delay_between_pulses_seconds)
     for _ in range(number_of_sets):
-      self._elec_stimu.append(
-        {'type': 'cyclic',
-         'value1': 0, 'condition1': 'delay={}'.format(
-          delay_between_pulses_seconds - pulse_duration_seconds),
+      self._elec_dicts.append(
+        {'type': 'cyclic', 'value1': 0,
+         'condition1':
+         f'delay={delay_between_pulses_seconds - pulse_duration_seconds}',
          'value2': 1,
-         'condition2': 'delay={}'.format(pulse_duration_seconds),
+         'condition2': f'delay={pulse_duration_seconds}',
          'cycles': pulses_per_set})
       self._elec_stimu_on.append((set_duration_minutes * 60, True))
-      self._elec_stimu.append(
+      self._elec_dicts.append(
         {'type': 'constant',
-         'condition': 'delay={}'.format(rest_between_sets_minutes * 60),
+         'condition': f'delay={rest_between_sets_minutes * 60}',
          'value': 0})
       self._elec_stimu_on.append((rest_between_sets_minutes * 60, False))
 
-    self.py_file.extend("new_prot.add_electrical_stimulation({}, {}, {}, {}, "
-                        "{})".format(pulse_duration_seconds,
-                                     set_duration_minutes,
-                                     delay_between_pulses_seconds,
-                                     rest_between_sets_minutes,
-                                     number_of_sets) + "\n")
-    self.py_file.extend("\n")
+    self.py_file.extend(f"new_prot.add_electrical_stimulation("
+                        f"{pulse_duration_seconds}, {set_duration_minutes}, "
+                        f"{delay_between_pulses_seconds}, "
+                        f"{rest_between_sets_minutes}, {number_of_sets})\n\n")
 
-  def add_electrical_rest(self,
-                          rest_duration_hours: float) -> None:
+  def add_electrical_rest(self, rest_duration_hours: float) -> None:
     """Adds an electrical resting phase, during which no current flows in the
     electrodes.
 
@@ -329,34 +390,30 @@ class Protocol_phases:
       rest_duration_hours: The resting phase duration.
     """
 
-    self._elec_stimu.append(
+    self._elec_dicts.append(
       {'type': 'constant',
-       'condition': 'delay={}'.format(rest_duration_hours * 60 * 60),
+       'condition': f'delay={rest_duration_hours * 60 * 60}',
        'value': 0})
     self._elec_stimu_on.append((rest_duration_hours * 60 * 60, False))
 
-    self.py_file.extend("new_prot.add_electrical_rest({})".
-                        format(rest_duration_hours) + "\n")
-    self.py_file.extend("\n")
+    self.py_file.extend(f"new_prot.add_electrical_rest("
+                        f"{rest_duration_hours})\n\n")
 
   def reset_protocol(self) -> None:
     """Resets the lists containing the protocol details."""
 
-    self._mecha_stimu = []
-    self._elec_stimu = []
-    self._mecha_stimu_on = [(0., False)]
-    self._elec_stimu_on = [(0., False)]
-    self._position = [(0., 0.)]
+    self._mecha_dicts.clear()
+    self._elec_dicts.clear()
+    self._mecha_stimu_on.clear()
+    self._elec_stimu_on.clear()
+    self._position.clear()
 
-    self.py_file = ["# coding: utf-8" + "\n",
-                    "\n",
-                    "from Remote_control.Tools import Protocol_phases" + "\n",
-                    "\n",
-                    "new_prot = Protocol_phases()" + "\n",
-                    "\n"
-                    ]
+    self.py_file = ["# coding: utf-8" + "\n\n",
+                    "from Remote_control.Tools import Protocol_phases\n\n",
+                    "new_prot = Protocol_phases()\n\n"]
 
-  def export(self) -> tuple:
+  def export(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]],
+                            List[Dict[str, Any]]]:
     """Generates the lists the stimulation program takes as inputs, and returns
     them.
 
@@ -364,8 +421,28 @@ class Protocol_phases:
       The lists for driving the Crappy Generators.
     """
 
-    self._build_led_list()
-    return self._list_led, self._mecha_stimu, self._elec_stimu
+    _, _, is_active, _ = self._parse_protocols()
+    list_led = self._build_led_list(is_active)
+    return list_led, self._mecha_dicts, self._elec_dicts
+
+  def plot_protocol(self) -> None:
+    """Plots the movable pin position, the moments when the electrical and
+    mechanical stimulation are on, and the moments when either of them is on."""
+
+    plt.ioff()
+
+    mecha_on, elec_on, is_active, position = self._parse_protocols()
+    current_time = datetime.now()
+
+    stimu_mecha_graph = mecha_on.make_curve(current_time)
+    position_graph = position.make_curve(current_time)
+
+    stimu_elec_graph = elec_on.make_curve(current_time)
+
+    is_active_graph = is_active.make_curve(current_time)
+
+    self._plot_curves(position_graph, stimu_mecha_graph,
+                      stimu_elec_graph, is_active_graph)
 
   def _add_mecha(self,
                  position: float,
@@ -381,232 +458,99 @@ class Protocol_phases:
         :obj:`False` if it is part of a resting phase.
     """
 
-    self._mecha_stimu.append(
-      {'type': 'constant',
-       'condition': 'delay={}'.format(delay),
-       'value': position})
+    self._mecha_dicts.append({'type': 'constant',
+                              'condition': f'delay={delay}',
+                              'value': position})
     self._mecha_stimu_on.append((delay, is_active))
     self._position.append((delay, position))
 
-  def _build_led_list(self) -> tuple:
-    """Builds the three :obj:`list` of :obj:`dict` necessary for starting the
-    protocol, and returns them.
+  def _parse_protocols(self) -> Tuple[Data_vs_time, Data_vs_time,
+                                      Data_vs_time, Data_vs_time]:
+    """"""
 
-    Returns:
-      The lists for driving the Crappy Generators.
-    """
+    mecha_on = Data_vs_time()
+    mecha_on.parse_raw_data(self._mecha_stimu_on)
+    mecha_on.remove_redundant()
 
-    # Building lists of tuples
-    # The first value is the timestamp, the second tells whether the stimulation
-    # is on or off from this timestamp to the next one
-    self._mecha_stimu_on[0] = (0.,
-                               self._mecha_stimu and self._mecha_stimu_on[1][1])
-    self._elec_stimu_on[0] = (0.,
-                              self._elec_stimu and self._elec_stimu_on[1][1])
+    elec_on = Data_vs_time()
+    elec_on.parse_raw_data(self._elec_stimu_on)
+    elec_on.remove_redundant()
 
-    stimu_mecha_timestamps = [self._mecha_stimu_on[0]]
-    position_timestamps = [self._position[0]]
-    stimu_elec_timestamps = [self._elec_stimu_on[0]]
-    if self._mecha_stimu:
-      for ((t, _), (_, value)) in zip(self._mecha_stimu_on[1:-1],
-                                      self._mecha_stimu_on[2:]):
-        stimu_mecha_timestamps.append(
-          (t + stimu_mecha_timestamps[-1][0], value))
+    position = Data_vs_time()
+    position.parse_raw_data(self._position, init=0)
 
-      for ((t, _), (_, value)) in zip(self._position[1:-1], self._position[2:]):
-        position_timestamps.append((t + position_timestamps[-1][0], value))
+    any_on = mecha_on + elec_on
+    sorted_any_on = OrderedDict(sorted(zip(any_on.timestamps, any_on.values)))
+    any_on.timestamps = list(sorted_any_on.keys())
+    any_on.values = list(sorted_any_on.values())
 
-    if self._elec_stimu:
-      for ((t, _), (_, value)) in zip(self._elec_stimu_on[1:-1],
-                                      self._elec_stimu_on[2:]):
-        stimu_elec_timestamps.append((t + stimu_elec_timestamps[-1][0], value))
+    return mecha_on, elec_on, any_on, position
 
-    # Simplifying the timestamps lists to remove redundant elements
-    if self._mecha_stimu:
-      to_remove_mecha = []
-      for index, (tuple1, tuple2) in enumerate(
-          zip(stimu_mecha_timestamps[:-1],
-              stimu_mecha_timestamps[1:])):
-        if tuple1[1] == tuple2[1]:
-          to_remove_mecha.append(index + 1)
-      if to_remove_mecha:
-        to_remove_mecha.reverse()
-        for index in to_remove_mecha:
-          del stimu_mecha_timestamps[index]
-
-    if self._elec_stimu:
-      to_remove_elec = []
-      for index, (tuple1, tuple2) in enumerate(zip(stimu_elec_timestamps[:-1],
-                                                   stimu_elec_timestamps[1:])):
-        if tuple1[1] == tuple2[1]:
-          to_remove_elec.append(index + 1)
-      if to_remove_elec:
-        to_remove_elec.reverse()
-        for index in to_remove_elec:
-          del stimu_elec_timestamps[index]
-
-    # Building another timestamp list to know if any stimulation is on
-    is_active_timestamps = []
-    index_elec = 0
-    index_mecha = 0
-    while True:
-      if stimu_mecha_timestamps[index_mecha][0] > \
-             stimu_elec_timestamps[index_elec][0]:
-        is_active_timestamps.append((stimu_mecha_timestamps[index_mecha][0],
-                                     stimu_mecha_timestamps[index_mecha][1] or
-                                     stimu_elec_timestamps[index_elec][1]))
-      elif stimu_mecha_timestamps[index_mecha][0] < \
-              stimu_elec_timestamps[index_elec][0]:
-        is_active_timestamps.append((stimu_elec_timestamps[index_elec][0],
-                                     stimu_mecha_timestamps[index_mecha][1] or
-                                     stimu_elec_timestamps[index_elec][1]))
-      else:
-        is_active_timestamps.append((stimu_mecha_timestamps[index_mecha][0],
-                                     stimu_mecha_timestamps[index_mecha][1] or
-                                     stimu_elec_timestamps[index_elec][1]))
-
-      try:
-        next_mecha_ts = stimu_mecha_timestamps[index_mecha + 1][0]
-      except IndexError:
-        next_mecha_ts = None
-      try:
-        next_elec_ts = stimu_elec_timestamps[index_elec + 1][0]
-      except IndexError:
-        next_elec_ts = None
-
-      # Particular situation at the end of the protocol
-      if next_mecha_ts is None and next_elec_ts is None:
-        break
-      elif next_mecha_ts is None:
-        is_active_timestamps.extend(stimu_elec_timestamps[index_elec + 1:])
-        break
-      elif next_elec_ts is None:
-        is_active_timestamps.extend(stimu_mecha_timestamps[index_mecha + 1:])
-        break
-
-      # Moving on to the next timestamp
-      if next_mecha_ts > next_elec_ts:
-        index_elec += 1
-      elif next_elec_ts > next_mecha_ts:
-        index_mecha += 1
-      else:
-        index_elec += 1
-        index_mecha += 1
+  def _build_led_list(self, is_active: Data_vs_time) -> List[Dict[str, Any]]:
+    """"""
 
     # Building the list of dictionaries for driving the LED
-    self._list_led = []
-    for tuple1, tuple2 in zip(is_active_timestamps[:-1],
-                              is_active_timestamps[1:]):
-      if not tuple1[1] and (
-           (tuple2[0] - tuple1[0]) > self._time_orange_on_minutes * 60):
-        self._list_led.append(
+    list_led = []
+    for val, t1, t2 in zip(is_active.values[:-1], is_active.timestamps[:-1],
+                           is_active.timestamps[1:]):
+      if not val and ((t2 - t1) > self._time_orange_on_secs):
+        list_led.append(
           {'type': 'constant',
-           'condition': 'delay={}'.format((tuple2[0] - tuple1[0]) -
-                                          self._time_orange_on_minutes * 60),
+           'condition': f'delay={(t2 - t1) - self._time_orange_on_secs}',
            'value': 0})
-        self._list_led.append(
+        list_led.append(
           {'type': 'constant',
-           'condition': 'delay={}'.format(self._time_orange_on_minutes * 60),
+           'condition': f'delay={self._time_orange_on_secs}',
            'value': 1})
       else:
-        self._list_led.append(
+        list_led.append(
           {'type': 'constant',
-           'condition': 'delay={}'.format(tuple2[0] - tuple1[0]),
+           'condition': f'delay={t2 - t1}',
            'value': 2})
 
-    return stimu_mecha_timestamps, stimu_elec_timestamps, \
-        is_active_timestamps, position_timestamps
+    return list_led
 
-  def plot_protocol(self) -> None:
-    """Plots the movable pin position, the moments when the electrical and
-    mechanical stimulation are on, and the moments when either of them is on."""
+  @staticmethod
+  def _plot_curves(position: Optional[Data_vs_time],
+                   mecha: Optional[Data_vs_time],
+                   elec: Optional[Data_vs_time],
+                   is_active: Optional[Data_vs_time]) -> None:
+    """"""
 
-    plt.ion()
-    stimu_mecha_timestamps, stimu_elec_timestamps, \
-        is_active_timestamps, position_timestamps = self._build_led_list()
-
-    current_time = datetime.now()
-
-    stimu_mecha_graph = [[current_time +
-                          timedelta(stimu_mecha_timestamps[0][0])],
-                         [stimu_mecha_timestamps[0][1]]]
-    position_graph = [[current_time +
-                       timedelta(position_timestamps[0][0])],
-                      [position_timestamps[0][1]]]
-    stimu_elec_graph = [[current_time +
-                         timedelta(stimu_elec_timestamps[0][0])],
-                        [stimu_elec_timestamps[0][1]]]
-
-    if self._mecha_stimu:
-      for t, value in stimu_mecha_timestamps[1:]:
-        stimu_mecha_graph[0].append(current_time +
-                                    timedelta(seconds=t - 0.001))
-        stimu_mecha_graph[0].append(current_time +
-                                    timedelta(seconds=t))
-        stimu_mecha_graph[1].append(stimu_mecha_graph[1][-1])
-        stimu_mecha_graph[1].append(value)
-
-      for t, value in position_timestamps[1:]:
-        position_graph[0].append(current_time +
-                                 timedelta(seconds=t - 0.001))
-        position_graph[0].append(current_time + timedelta(seconds=t))
-        position_graph[1].append(position_graph[1][-1])
-        position_graph[1].append(value)
-
-    if self._elec_stimu:
-      for t, value in stimu_elec_timestamps[1:]:
-        stimu_elec_graph[0].append(current_time +
-                                   timedelta(seconds=t - 0.001))
-        stimu_elec_graph[0].append(current_time +
-                                   timedelta(seconds=t))
-        stimu_elec_graph[1].append(stimu_elec_graph[1][-1])
-        stimu_elec_graph[1].append(value)
-
-    is_active_graph = [[current_time +
-                        timedelta(is_active_timestamps[0][0])],
-                       [is_active_timestamps[0][1]]]
-    for t, value in is_active_timestamps[1:]:
-      is_active_graph[0].append(current_time +
-                                timedelta(seconds=t - 0.001))
-      is_active_graph[0].append(current_time + timedelta(seconds=t))
-      is_active_graph[1].append(is_active_graph[1][-1])
-      is_active_graph[1].append(value)
-
-    plot_elec = bool(self._elec_stimu and len(self._elec_stimu) > 2)
-    plot_mecha = bool(self._mecha_stimu and len(self._mecha_stimu) > 2)
-
-    fig = plt.figure()
-    if plot_elec and plot_mecha:
+    fig = plt.figure(0)
+    if elec is not None and mecha is not None:
       plt.subplot(211)
       plt.title("Movable pin position")
       plt.ylabel("Position (mm)")
-      plt.plot(position_graph[0], position_graph[1])
+      plt.plot(position.timestamps, position.values)
+
       plt.subplot(212)
       plt.title("Stimulation active")
       plt.ylabel("1 stimulating, 0 resting")
-      plt.plot(stimu_mecha_graph[0], stimu_mecha_graph[1])
-      plt.plot(stimu_elec_graph[0], stimu_elec_graph[1])
-      plt.legend(['Mechanical',
-                  'Electrical'])
-    elif plot_elec:
-      plt.plot(stimu_elec_graph[0], stimu_elec_graph[1])
+      plt.plot(mecha.timestamps, mecha.values)
+      plt.plot(elec.timestamps, elec.values)
+      plt.legend(['Mechanical', 'Electrical'])
+
+    elif elec is not None:
       plt.title("Electrical stimulation")
-    elif plot_mecha:
+      plt.plot(elec.timestamps, elec.values)
+
+    elif mecha is not None:
       plt.title("Mechanical stimulation")
-      plt.plot(position_graph[0], position_graph[1])
-      plt.plot(stimu_mecha_graph[0], stimu_mecha_graph[1])
+      plt.plot(position.timestamps, position.values)
+      plt.plot(mecha.timestamps, mecha.values)
       plt.legend(['Position', 'Activity'])
+
     else:
       plt.subplot()
       ax = fig.axes[0]
-      TextBox(ax, '', 'Cannot display the protocol, it is only resting...\n'
-                      'Sorryyyyy !')
+      TextBox(ax, '', 'Cannot display the protocol, it is only resting...')
       plt.show()
       return
 
-    plt.figure()
+    plt.figure(1)
     plt.title("Overview of medium refreshment times")
     plt.ylabel("1 stimulating, 0 resting")
-    plt.plot(is_active_graph[0], is_active_graph[1])
+    plt.plot(is_active.timestamps, is_active.values)
 
     plt.show()
