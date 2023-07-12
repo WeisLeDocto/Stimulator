@@ -610,10 +610,10 @@ class Graphical_interface(QMainWindow):
     # Asking the user for the stimulator to connect to
     if self._address is None:
       item, ok = QInputDialog.getItem(
-        parent=self,
-        title="Stimulator selection",
-        label="Please select the stimulator to connect to :",
-        items=devices.keys(),
+        self,
+        "Stimulator selection",
+        "Please select the stimulator to connect to :",
+        devices.keys(),
         current=0,
         editable=False)
 
