@@ -527,10 +527,10 @@ class Graphical_interface(QMainWindow):
 
     # Asking the user which protocol to upload
     item, ok = QInputDialog.getItem(
-      parent=self,
-      title="Protocol selection",
-      label="Please select the protocol to upload",
-      items=items,
+      self,
+      "Protocol selection",
+      "Please select the protocol to upload",
+      items,
       current=0,
       editable=False)
 
@@ -571,10 +571,10 @@ class Graphical_interface(QMainWindow):
 
     # Asking the user which protocol to start
     item, ok = QInputDialog.getItem(
-      parent=self,
-      title="Protocol selection",
-      label="Please select the protocol to run",
-      items=self._protocol_list,
+      self,
+      "Protocol selection",
+      "Please select the protocol to run",
+      self._protocol_list,
       current=0,
       editable=False)
     if not ok:
@@ -592,10 +592,10 @@ class Graphical_interface(QMainWindow):
 
     # Asking the user which protocol to download
     item, ok = QInputDialog.getItem(
-      parent=self,
-      title="Protocol selection",
-      label="Please select the protocol to download",
-      items=self._protocol_list,
+      self,
+      "Protocol selection",
+      "Please select the protocol to download",
+      self._protocol_list,
       current=0,
       editable=False)
     if not ok:
