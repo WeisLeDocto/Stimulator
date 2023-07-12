@@ -481,7 +481,7 @@ class Graphical_interface(QMainWindow):
     """
 
     # Parsing the message in case more info needs to be added to it
-    message = self._parse_message.get(message, default=lambda: message)()
+    message = self._parse_message.get(message, lambda: message)()
 
     # If the message is None, the user aborted the operation
     if message is None:
